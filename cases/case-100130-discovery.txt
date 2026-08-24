@@ -1,0 +1,68 @@
+
+============================================================
+                    SOC TRIAGE REPORT
+============================================================
+
+[ALERT]
+Rule ID:      100130
+Level:        12
+Host:         WIN10
+IP:           192.168.100.20
+User:         WIN10\vboxuser
+Timestamp:    2026-08-22T03:40:58.349+0000
+ProcessGuid:  {3aa82e30-1a15-6a89-9003-000000001b00}
+Window:       últimos 7 dias
+
+[DETECTION]
+SOC LAB: Multiple Windows discovery commands executed from elevated PowerShell.
+
+[MITRE ATT&CK]
+T1033  System Owner/User Discovery
+T1016  System Network Configuration Discovery
+T1087.001  Local Account
+T1059.003  Windows Command Shell
+
+[PROCESS]
+Image:
+C:\Windows\System32\cmd.exe
+
+Parent:
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+
+Parent GUID:
+{3aa82e30-1671-6a89-1903-000000001b00}
+
+User:
+WIN10\vboxuser
+
+Integrity:
+High
+
+CommandLine:
+"C:\Windows\system32\cmd.exe" /c "whoami && hostname && ipconfig && net user && echo SOC-LAB-MULTI-DISCOVERY-004002"
+
+Hashes:
+SHA256=BADF4752413CB0CBDC03FB95820CA167F0CDC63B597CCDB5EF43111180E088B0
+
+[PROCESS TREE]
+
+powershell.exe
+└── cmd.exe [Rule 100130 | L12]
+    ├── whoami.exe [Rule 92032 | L3]
+    ├── HOSTNAME.EXE [Rule 92032 | L3]
+    ├── ipconfig.exe [Rule 92032 | L3]
+    └── net.exe [Rule 92036 | L3]
+        └── net1.exe [Rule 92031 | L3]
+
+[ANALYST ASSESSMENT]
+Classification: True Positive
+Disposition:    Close - Authorized Security Test
+Notes:          Controlled SOC lab test. Multiple discovery commands were
+                intentionally executed from an elevated PowerShell session.
+                Sysmon captured the process chain and Wazuh correctly detected
+                and correlated the activity. No escalation required.
+
+============================================================
+Report generated.
+============================================================
+

@@ -1,0 +1,22 @@
+# Wazuh raw logs
+alerts.json
+alerts.log
+ossec-alerts-*.json
+ossec-alerts-*.log
+
+# Environment / secrets
+.env
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Temporary files
+*.tmp
+*.swp
+*~
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db

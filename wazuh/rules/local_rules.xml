@@ -1,0 +1,67 @@
+<!-- Local rules -->
+
+<!-- Modify it at your will. -->
+<!-- Copyright (C) 2015, Wazuh Inc. -->
+
+<group name="local,syslog,sshd,">
+
+  <rule id="100001" level="5">
+    <if_sid>5716</if_sid>
+    <srcip>1.1.1.1</srcip>
+    <description>sshd: authentication failed from IP 1.1.1.1.</description>
+    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+  </rule>
+
+  <rule id="100100" level="10">
+    <if_sid>91802</if_sid>
+    <field name="win.system.eventID">4104</field>
+    <field name="win.eventdata.scriptBlockText">SOC-LAB-DETECTION-TEST</field>
+    <description>SOC LAB: PowerShell Script Block test detected.</description>
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+    <group>powershell,soc_lab,</group>
+  </rule>
+
+  <rule id="100110" level="8">
+    <if_sid>92004</if_sid>
+    <field name="win.eventdata.integrityLevel" type="pcre2">(?i)^High$</field>
+    <description>SOC LAB: PowerShell spawned CMD with High integrity.</description>
+    <mitre>
+      <id>T1059.003</id>
+    </mitre>
+    <group>sysmon,powershell,windows_command_shell,soc_lab,</group> 
+  </rule>
+
+  <rule id="100120" level="10">
+    <if_sid>100110</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bwhoami\b</field>
+    <description>SOC LAB: High-integrity PowerShell spawned CMD and executed whoami.</description>
+    <mitre>
+      <id>T1033</id>
+      <id>T1059.003</id>
+    </mitre>
+    <group>sysmon,powershell,discovery,windows_command_shell,soc_lab,</group>
+  </rule>
+
+  <rule id="100130" level="12">
+    <if_sid>100110</if_sid>
+
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bwhoami\b</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bhostname\b</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bipconfig\b</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bnet\s+user\b</field>
+
+    <description>SOC LAB: Multiple Windows discovery commands executed from elevated PowerShell.</description>
+
+    <mitre>
+      <id>T1033</id>
+      <id>T1016</id>
+      <id>T1087.001</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>sysmon,powershell,discovery,multiple_discovery_commands,soc_lab,</group>
+  </rule>
+
+</group>
