@@ -86,4 +86,28 @@
     </mitre>
   </rule>
 
+  <rule id="100145" level="4">
+    <if_sid>60106</if_sid>
+    <field name="win.system.eventID">^4624$</field>
+    <field name="win.eventdata.logonType">^3$</field>
+    <description>SOC LAB: Successful Windows network logon.</description>
+    <group>authentication_success,network_logon,soc_lab,</group>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+  </rule>
+
+
+  <rule id="100150" level="14" timeframe="300">
+    <if_sid>100145</if_sid>
+    <if_matched_sid>100140</if_matched_sid>
+    <same_field>win.eventdata.targetUserName</same_field>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <description>SOC LAB: Successful Windows network logon after repeated password guessing attempts.</description>
+    <group>authentication_success,possible_account_compromise,password_guessing,soc_lab,</group>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+  </rule>
+
 </group>
