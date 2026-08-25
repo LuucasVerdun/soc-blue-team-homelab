@@ -65,3 +65,25 @@
   </rule>
 
 </group>
+
+<group name="local,windows,authentication,brute_force,soc_lab,">
+
+  <rule id="100135" level="6">
+    <if_sid>60122</if_sid>
+    <field name="win.eventdata.subStatus" type="pcre2">(?i)^0xc000006a$</field>
+    <description>SOC LAB: Windows logon failure caused by incorrect password for an existing account.</description>
+    <group>authentication_failed,password_failure,soc_lab,</group>
+  </rule>
+
+  <rule id="100140" level="12" frequency="5" timeframe="60">
+    <if_matched_sid>100135</if_matched_sid>
+    <same_field>win.eventdata.targetUserName</same_field>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <description>SOC LAB: Repeated password failures against the same Windows account from the same source IP.</description>
+    <group>authentication_failed,brute_force,password_guessing,soc_lab,</group>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+  </rule>
+
+</group>
