@@ -16,9 +16,11 @@ Este laboratório tem como objetivos:
 - criar e testar regras de detecção;
 - realizar correlação temporal de eventos;
 - investigar árvores de processos;
-- detectar falhas de autenticação e possíveis ataques de brute force;
-- detectar password guessing;
+- detectar falhas de autenticação;
+- detectar brute force e password guessing;
 - correlacionar falhas de autenticação com logons bem-sucedidos;
+- detectar bloqueio de contas;
+- correlacionar password guessing com account lockout;
 - utilizar MITRE ATT&CK para classificação de comportamento;
 - realizar triagem de alertas;
 - documentar casos de investigação;
@@ -115,7 +117,7 @@ Event ID 11 - File Create
 Event ID 22 - DNS Query
 ```
 
-O Event ID 1 é especialmente importante para investigação porque fornece informações como:
+O Event ID 1 fornece informações importantes para investigação, incluindo:
 
 ```text
 ProcessGuid
@@ -132,13 +134,9 @@ ParentImage
 ParentCommandLine
 ```
 
-O Wazuh Agent coleta esses eventos e os envia ao Wazuh Manager para análise e aplicação das regras de detecção.
-
 ---
 
 # PowerShell Monitoring
-
-O laboratório também utiliza PowerShell Script Block Logging.
 
 Foi validada a coleta de:
 
@@ -147,7 +145,7 @@ Microsoft-Windows-PowerShell/Operational
 Event ID 4104
 ```
 
-Uma regra customizada foi criada para detectar um marcador utilizado durante testes controlados:
+Regra customizada:
 
 ```text
 Rule ID: 100100
@@ -165,68 +163,27 @@ As regras customizadas são mantidas em:
 wazuh/rules/local_rules.xml
 ```
 
-Atualmente o laboratório possui as seguintes regras principais.
-
----
-
-## Rule 100100
-
-Detecção de PowerShell Script Block contendo marcador de teste controlado.
+Principais regras implementadas:
 
 ```text
-Rule ID: 100100
-Level:   10
-MITRE:   T1059.001
-```
-
-MITRE ATT&CK:
-
-```text
-T1059.001 - PowerShell
+100100 - PowerShell Script Block marker detection
+100110 - PowerShell spawning elevated cmd.exe
+100120 - whoami executed by elevated cmd.exe
+100130 - Discovery command sequence
+100135 - Wrong password for existing Windows account
+100140 - Password Guessing
+100145 - Successful Windows network logon
+100150 - Successful logon after Password Guessing
+100155 - Account lockout after Password Guessing
 ```
 
 ---
 
-## Rule 100110
-
-Detecta `cmd.exe` iniciado por PowerShell elevado.
-
-```text
-Rule ID: 100110
-Level:   8
-```
-
-MITRE ATT&CK:
-
-```text
-T1059.003 - Windows Command Shell
-```
-
----
-
-## Rule 100120
-
-Detecta execução de `whoami` dentro de um `cmd.exe` iniciado por PowerShell elevado.
-
-```text
-Rule ID: 100120
-Level:   10
-```
-
-MITRE ATT&CK:
-
-```text
-T1033     - System Owner/User Discovery
-T1059.003 - Windows Command Shell
-```
-
----
+# Discovery Detection
 
 ## Rule 100130
 
-Detecta múltiplos comandos de Discovery executados dentro do mesmo `cmd.exe`.
-
-Comandos monitorados:
+Detecta múltiplos comandos de Discovery dentro do mesmo fluxo de execução:
 
 ```text
 whoami
@@ -235,7 +192,7 @@ ipconfig
 net user
 ```
 
-Regra:
+Resultado:
 
 ```text
 Rule ID: 100130
@@ -251,26 +208,7 @@ T1087.001 - Local Account
 T1059.003 - Windows Command Shell
 ```
 
----
-
-# Discovery Detection Scenario
-
-Um cenário controlado foi executado com:
-
-```cmd
-cmd.exe /c "whoami && hostname && ipconfig && net user"
-```
-
-O processo foi iniciado a partir de uma sessão elevada do PowerShell.
-
-O Wazuh gerou:
-
-```text
-Rule ID: 100130
-Level:   12
-```
-
-A cadeia observada foi:
+Exemplo de árvore:
 
 ```text
 powershell.exe
@@ -282,27 +220,10 @@ powershell.exe
         └── net1.exe
 ```
 
----
-
-# Process Tree Investigation
-
-A investigação de processos utiliza:
+Case:
 
 ```text
-ProcessGuid
-ParentProcessGuid
-```
-
-Exemplo:
-
-```text
-powershell.exe
-└── cmd.exe [Rule 100130 | L12]
-    ├── whoami.exe [Rule 92032 | L3]
-    ├── HOSTNAME.EXE [Rule 92032 | L3]
-    ├── ipconfig.exe [Rule 92032 | L3]
-    └── net.exe [Rule 92036 | L3]
-        └── net1.exe [Rule 92031 | L3]
+cases/case-100130-discovery.txt
 ```
 
 Documentação:
@@ -315,9 +236,7 @@ docs/process-tree-investigation.md
 
 # Process Tree Investigation Utility
 
-Foi desenvolvida uma ferramenta em Bash para automatizar parte da investigação de árvores de processos.
-
-Arquivo:
+Foi desenvolvida uma ferramenta em Bash:
 
 ```text
 scripts/process-tree.sh
@@ -341,64 +260,25 @@ Funcionalidades:
 - correlação por `ProcessGuid` e `ParentProcessGuid`;
 - consulta ao `alerts.json`;
 - consulta aos históricos `ossec-alerts-*.json`;
-- definição de janela temporal com `--days`;
-- modo resumido com `--summary`;
-- geração de relatório com `--report`;
-- tratamento de linhas JSON inválidas ou incompletas;
-- suporte à rotação de logs do Wazuh.
-
----
-
-# SOC Triage Report
-
-A ferramenta também pode gerar um relatório inicial de triagem.
-
-Exemplo:
-
-```bash
-./scripts/process-tree.sh --rule 100130 --days 7 --report
-```
-
-Case:
-
-```text
-cases/case-100130-discovery.txt
-```
-
-Classificação:
-
-```text
-Classification: True Positive
-Disposition: Close - Authorized Security Test
-```
+- janela temporal com `--days`;
+- modo resumido;
+- geração de relatório;
+- tratamento de JSON incompleto;
+- suporte à rotação de logs.
 
 ---
 
 # Windows Authentication Monitoring
 
-Foi implementado monitoramento de autenticação utilizando o Windows Security Event Log e o Wazuh.
-
-Eventos principais:
+A etapa de autenticação utiliza principalmente:
 
 ```text
 4625 - Failed Logon
 4624 - Successful Logon
+4740 - Account Locked Out
 ```
 
-Campos importantes:
-
-```text
-targetUserName
-targetDomainName
-logonType
-ipAddress
-status
-subStatus
-authenticationPackageName
-workstationName
-```
-
-Documentação completa:
+Documentação:
 
 ```text
 docs/windows-authentication-monitoring.md
@@ -408,18 +288,15 @@ docs/windows-authentication-monitoring.md
 
 # Rule 60122 - Individual Logon Failure
 
-Uma tentativa de autenticação inválida gera:
+Uma autenticação inválida gera:
 
 ```text
 Event ID: 4625
 ```
 
-Resultado de usuário inexistente:
+Exemplo:
 
 ```text
-Account:     SOC-LAB-INVALID
-Logon Type:  3
-Source IP:   127.0.0.1
 Status:      0xC000006D
 SubStatus:   0xC0000064
 ```
@@ -427,16 +304,16 @@ SubStatus:   0xC0000064
 No Wazuh:
 
 ```text
-Rule ID:     60122
-Level:       5
-Description: Logon Failure - Unknown user or bad password
+Rule ID:      60122
+Level:        5
+Description:  Logon Failure - Unknown user or bad password
 ```
 
 ---
 
 # Rule 60204 - Multiple Windows Logon Failures
 
-A regra nativa 60204 correlaciona múltiplas falhas de autenticação:
+A regra nativa 60204 correlaciona:
 
 ```text
 8 falhas
@@ -447,21 +324,15 @@ até 240 segundos
 Resultado:
 
 ```text
-Rule ID:     60204
-Level:       10
-Description: Multiple Windows Logon Failures
-MITRE:       T1110
-Technique:   Brute Force
-Tactic:      Credential Access
+Rule ID:      60204
+Level:        10
+MITRE:        T1110
+Technique:    Brute Force
 ```
 
 ---
 
-# Password Guessing Detection
-
-## Rule 100135
-
-A Rule 100135 identifica senha incorreta para uma conta existente:
+# Rule 100135 - Wrong Password for Existing Account
 
 ```xml
 <rule id="100135" level="6">
@@ -472,7 +343,7 @@ A Rule 100135 identifica senha incorreta para uma conta existente:
 </rule>
 ```
 
-O SubStatus:
+O código:
 
 ```text
 0xC000006A
@@ -482,7 +353,7 @@ representa senha incorreta para uma conta existente.
 
 ---
 
-## Rule 100140
+# Rule 100140 - Password Guessing
 
 ```xml
 <rule id="100140" level="12" frequency="5" timeframe="60">
@@ -504,43 +375,15 @@ Critérios:
 mesmo usuário
 mesmo IP
 até 60 segundos
-senha incorreta
-conta existente
 ```
 
-MITRE ATT&CK:
+Resultado:
 
 ```text
-T1110.001 - Password Guessing
-Tactic: Credential Access
-```
-
----
-
-# Password Guessing Validation
-
-Foram realizadas cinco tentativas de senha incorreta contra:
-
-```text
-WIN10\vboxuser
-```
-
-O Windows registrou:
-
-```text
-Event ID:   4625
-Status:     0xC000006D
-SubStatus:  0xC000006A
-```
-
-Resultado no Wazuh:
-
-```text
-1ª falha -> Rule 100135 | Level 6
-2ª falha -> Rule 100135 | Level 6
-3ª falha -> Rule 100135 | Level 6
-4ª falha -> Rule 100135 | Level 6
-5ª falha -> Rule 100140 | Level 12
+Rule ID:      100140
+Level:        12
+MITRE:        T1110.001
+Technique:    Password Guessing
 ```
 
 Case:
@@ -551,89 +394,20 @@ cases/case-100140-password-guessing.txt
 
 ---
 
-# Successful Logon Monitoring
+# Event ID 4624 - Successful Logon
 
-## Event ID 4624
-
-Foi validado o evento:
+Foram validados:
 
 ```text
-Event ID 4624
-An account was successfully logged on
+Type 2 - Interactive
+Type 3 - Network
 ```
 
-Os principais Logon Types analisados foram:
-
-```text
-Type 2  - Interactive
-Type 3  - Network
-Type 10 - RemoteInteractive / RDP
-```
-
-Nesta etapa foram validados diretamente os Types 2 e 3.
-
----
-
-## Logon Type 2 - Interactive
-
-Resultado:
-
-```text
-User:        vboxuser
-Domain:      WIN10
-Logon Type:  2
-Source IP:   ::1
-AuthPackage: Negotiate
-```
-
-No Wazuh:
-
-```text
-Rule ID:      60118
-Level:        3
-Description:  Windows Workstation Logon Success
-```
-
----
-
-## Logon Type 3 - Network
-
-Foi gerado um logon de rede utilizando:
-
-```powershell
-net use \\127.0.0.1\IPC$ /user:WIN10\vboxuser *
-```
-
-Resultado:
-
-```text
-User:        vboxuser
-Domain:      WIN10
-Logon Type:  3
-Source IP:   127.0.0.1
-Workstation: WIN10
-AuthPackage: NTLM
-```
-
-No Wazuh:
-
-```text
-Rule ID:      60106
-Level:        3
-Description:  Windows Logon Success
-```
-
-MITRE:
-
-```text
-T1078 - Valid Accounts
-```
+O Type 3 foi utilizado como base para correlação com Password Guessing.
 
 ---
 
 # Rule 100145 - Successful Network Logon
-
-Foi criada uma regra intermediária para identificar logons de rede bem-sucedidos:
 
 ```xml
 <rule id="100145" level="4">
@@ -648,21 +422,15 @@ Foi criada uma regra intermediária para identificar logons de rede bem-sucedido
 </rule>
 ```
 
-Critérios:
+MITRE:
 
 ```text
-4624
-+
-Logon Type 3
-=
-Successful Network Logon
+T1078 - Valid Accounts
 ```
 
 ---
 
 # Rule 100150 - Successful Logon After Password Guessing
-
-A Rule 100150 correlaciona um logon bem-sucedido com uma ocorrência anterior da Rule 100140.
 
 ```xml
 <rule id="100150" level="14" timeframe="300">
@@ -678,27 +446,17 @@ A Rule 100150 correlaciona um logon bem-sucedido com uma ocorrência anterior da
 </rule>
 ```
 
-A lógica final é:
+Lógica:
 
 ```text
-5 falhas
-mesmo usuário
-mesmo IP
-até 60 segundos
-↓
-100140
 Password Guessing
 ↓
-4624 Type 3
-mesmo usuário
-mesmo IP
-até 300 segundos
+Successful Network Logon
 ↓
-100150
-Successful Logon After Password Guessing
+Possible Account Compromise
 ```
 
-Resultado:
+Resultado validado:
 
 ```text
 Rule ID:      100150
@@ -707,12 +465,141 @@ User:         vboxuser
 Source IP:    127.0.0.1
 Logon Type:   3
 MITRE:        T1078
-Technique:    Valid Accounts
+```
+
+Case:
+
+```text
+cases/case-100150-success-after-password-guessing.txt
 ```
 
 ---
 
-# Authentication Correlation Chain
+# Event ID 4740 - Account Lockout
+
+Foi configurado e validado o bloqueio de conta local.
+
+Política utilizada:
+
+```text
+Lockout threshold:           10
+Lockout duration:            10 minutes
+Lockout observation window:  10 minutes
+```
+
+Uma conta dedicada foi utilizada:
+
+```text
+SOC-LAB-LOCKOUT
+```
+
+Após atingir o limite de tentativas inválidas, o Windows gerou:
+
+```text
+Event ID:      4740
+User:          SOC-LAB-LOCKOUT
+Description:   A user account was locked out
+```
+
+---
+
+# Rule 60115 - User Account Locked Out
+
+O Wazuh classificou o Event ID 4740 com a regra nativa:
+
+```text
+Rule ID:      60115
+Level:        9
+Description:  User account locked out (multiple login errors)
+User:         SOC-LAB-LOCKOUT
+```
+
+MITRE ATT&CK:
+
+```text
+T1110 - Brute Force
+T1531 - Account Access Removal
+```
+
+Táticas:
+
+```text
+Credential Access
+Impact
+```
+
+---
+
+# Rule 100155 - Account Lockout After Password Guessing
+
+Foi criada uma correlação customizada entre:
+
+```text
+100140 - Password Guessing
+↓
+60115 - Account Locked Out
+↓
+100155 - Account Lockout After Password Guessing
+```
+
+Regra:
+
+```xml
+<rule id="100155" level="13" timeframe="300">
+  <if_sid>60115</if_sid>
+  <if_matched_sid>100140</if_matched_sid>
+  <same_field>win.eventdata.targetUserName</same_field>
+
+  <description>SOC LAB: Windows account locked out after repeated password guessing attempts.</description>
+
+  <group>authentication_failed,account_lockout,password_guessing,soc_lab,</group>
+
+  <mitre>
+    <id>T1110.001</id>
+    <id>T1531</id>
+  </mitre>
+</rule>
+```
+
+Critérios:
+
+```text
+Password Guessing previamente detectado
++
+mesmo targetUserName
++
+Event ID 4740
++
+janela de 300 segundos
+```
+
+Resultado validado:
+
+```text
+Rule ID:      100155
+Level:        13
+Description:  Windows account locked out after repeated password guessing attempts.
+User:         SOC-LAB-LOCKOUT
+```
+
+MITRE:
+
+```text
+T1110.001 - Password Guessing
+T1531     - Account Access Removal
+```
+
+Case:
+
+```text
+cases/case-100155-account-lockout-after-password-guessing.txt
+```
+
+---
+
+# Authentication Correlation Chains
+
+## Password Guessing → Successful Logon
 
 ```text
 4625
@@ -732,65 +619,83 @@ T1110.001 - Password Guessing
 T1078 - Valid Accounts
 ```
 
+## Password Guessing → Account Lockout
+
+```text
+4625
+↓
+60122
+↓
+100135
+↓
+100140
+T1110.001 - Password Guessing
+↓
+4740
+↓
+60115
+T1110 + T1531
+↓
+100155
+T1110.001 + T1531
+```
+
 ---
 
 # SOC Interpretation
 
-A combinação:
+As correlações implementadas permitem distinguir cenários com diferentes níveis de criticidade.
+
+Exemplos:
 
 ```text
-múltiplas falhas de senha
-↓
-logon bem-sucedido logo depois
+Falha isolada
+→ baixa contextualização
 ```
-
-é mais crítica do que falhas isoladas.
-
-Em produção, esse padrão pode indicar que uma credencial foi descoberta ou comprometida.
-
-Por isso, a Rule 100150 foi definida como:
 
 ```text
-Level 14
+Múltiplas falhas
+→ possível brute force
 ```
 
-para representar alta prioridade de investigação.
+```text
+Password Guessing contra a mesma conta
+→ maior contexto de Credential Access
+```
+
+```text
+Password Guessing + sucesso
+→ possível comprometimento de credenciais
+```
+
+```text
+Password Guessing + Account Lockout
+→ possível ataque causando indisponibilidade da conta
+```
 
 ---
 
-# Authentication Case Triage
+# SOC Triage
 
-O cenário foi classificado como:
+Os cenários foram realizados em ambiente controlado.
+
+Classificação utilizada:
 
 ```text
 Classification: True Positive
 Disposition: Close - Authorized Security Test
 ```
 
-Case:
+Isso indica que:
 
-```text
-cases/case-100150-success-after-password-guessing.txt
-```
-
-Em produção, a investigação recomendada incluiria:
-
-- usuário afetado;
-- origem do acesso;
-- histórico de autenticação;
-- dispositivo utilizado;
-- eventos posteriores ao logon;
-- processos iniciados;
-- alterações de privilégio;
-- movimentação lateral;
-- persistência;
-- atividade de rede.
+- o comportamento realmente ocorreu;
+- a regra detectou corretamente;
+- não se tratava de atividade maliciosa real;
+- o teste foi autorizado.
 
 ---
 
 # MITRE ATT&CK Coverage
-
-As principais técnicas trabalhadas até o momento são:
 
 | Technique | Description |
 |---|---|
@@ -802,6 +707,7 @@ As principais técnicas trabalhadas até o momento são:
 | T1110 | Brute Force |
 | T1110.001 | Password Guessing |
 | T1078 | Valid Accounts |
+| T1531 | Account Access Removal |
 
 ---
 
@@ -816,7 +722,8 @@ soc-blue-team-homelab/
 ├── cases/
 │   ├── case-100130-discovery.txt
 │   ├── case-100140-password-guessing.txt
-│   └── case-100150-success-after-password-guessing.txt
+│   ├── case-100150-success-after-password-guessing.txt
+│   └── case-100155-account-lockout-after-password-guessing.txt
 │
 ├── docs/
 │   ├── process-tree-investigation.md
@@ -851,45 +758,45 @@ Windows Endpoint
               |        +---- 60204
               |        +---- 100135
               |        +---- 100140
+              |                  |
+              |                  +---- 4624 Type 3
+              |                  |       |
+              |                  |       +---- 100145
+              |                  |       +---- 100150
+              |                  |
+              |                  +---- 4740
+              |                          |
+              |                          +---- 60115
+              |                          +---- 100155
               |
-              +---- 4624 Successful Logon
-                       |
-                       +---- 60106 / 60118
-                       +---- 100145
-                       +---- 100150
-                              |
-                              v
-                     Possible Account Compromise
+              +---- Authentication Correlation
 ```
 
 ---
 
-# Troubleshooting Performed
+# Troubleshooting Realizado
 
 Durante o desenvolvimento foram investigados e resolvidos problemas relacionados a:
 
 - instalação do Wazuh Agent;
 - comunicação entre endpoint e Wazuh Manager;
-- configuração de Sysmon;
-- excesso de eventos Sysmon;
-- ajuste de Registry Events;
+- configuração do Sysmon;
 - coleta de PowerShell;
 - criação de regras customizadas;
-- sintaxe XML de regras Wazuh;
-- correlação por `ProcessGuid`;
-- reconstrução de árvores de processos;
-- rotação de logs do Wazuh;
-- arquivos JSON incompletos durante leitura;
-- consultas com `jq`;
-- correlação temporal;
+- sintaxe XML;
 - `frequency`;
 - `timeframe`;
+- `if_sid`;
+- `if_matched_sid`;
 - `same_field`;
-- diferenças entre usuário inexistente e senha incorreta;
-- interação entre regras customizadas e regras nativas de correlação;
-- autenticação SMB com erro 1219;
-- diferenciação entre Logon Type 2 e 3;
-- correlação entre falhas e sucesso de autenticação.
+- conflitos entre regras de correlação;
+- diferenciação entre usuário inexistente e senha incorreta;
+- autenticação SMB e erro 1219;
+- análise de Logon Types;
+- Event ID 4740;
+- ausência de `ipAddress` no evento 4740;
+- correlação por `targetUserName`;
+- correlação temporal entre Password Guessing e Account Lockout.
 
 ---
 
@@ -902,25 +809,25 @@ Implementado:
 [OK] Windows Wazuh Agent
 [OK] Sysmon
 [OK] PowerShell Logging
-[OK] Sysmon Event ID 1 investigation
-[OK] ProcessGuid correlation
-[OK] ParentProcessGuid correlation
-[OK] Custom Wazuh detection rules
+[OK] Process Tree investigation
 [OK] Discovery detection
-[OK] Process Tree reconstruction
-[OK] Historical Wazuh alert investigation
-[OK] SOC Triage Report
-[OK] Windows Event ID 4625 monitoring
-[OK] Individual authentication failure detection
-[OK] Multiple Windows logon failure detection
+[OK] SOC Triage
+[OK] Event ID 4625 monitoring
+[OK] Rule 60122 analysis
+[OK] Rule 60204 validation
+[OK] Rule 100135
+[OK] Rule 100140
 [OK] Password Guessing detection
-[OK] Windows Event ID 4624 monitoring
+[OK] Event ID 4624 monitoring
 [OK] Logon Type 2 analysis
 [OK] Logon Type 3 analysis
-[OK] Successful network logon detection
+[OK] Rule 100145
+[OK] Rule 100150
 [OK] Failed-to-successful authentication correlation
-[OK] Possible account compromise detection
-[OK] Temporal correlation
+[OK] Event ID 4740 monitoring
+[OK] Rule 60115 validation
+[OK] Rule 100155
+[OK] Password Guessing-to-Account Lockout correlation
 [OK] MITRE ATT&CK mapping
 ```
 
@@ -928,27 +835,44 @@ Implementado:
 
 # Next Steps
 
-Próximas evoluções previstas:
+Próxima etapa:
 
-- Event ID 4740 - Account Lockout;
-- account lockout correlation;
-- Logon Type 10 analysis;
-- RDP authentication monitoring;
-- RDP brute force detection;
-- successful RDP logon after failures;
+```text
+RDP Authentication Monitoring
+```
+
+Objetivos:
+
+- analisar Logon Type 10;
+- validar Event ID 4624 RemoteInteractive;
+- analisar falhas RDP;
+- identificar source IP;
+- correlacionar brute force RDP;
+- detectar sucesso RDP após falhas;
+- criar regras customizadas quando necessário;
+- documentar um novo caso SOC.
+
+Etapas futuras:
+
 - Windows Server integration;
 - Active Directory;
 - privileged logon monitoring;
-- privilege escalation detection;
-- persistence scenarios;
-- Windows Defender integration;
+- privilege escalation;
+- persistence;
+- Windows Defender;
 - malware monitoring;
 - Suricata;
 - Zeek;
 - network telemetry;
-- lateral movement scenarios;
+- DNS threat detection;
+- command-and-control detection;
+- lateral movement;
 - threat hunting;
-- additional SOC investigation cases.
+- additional incident cases;
+- dashboards;
+- Splunk integration;
+- SIEM comparison;
+- SOAR.
 
 ---
 
