@@ -736,22 +736,262 @@ A etapa de Windows Authentication Monitoring demonstrou:
 
 ---
 
-# Próxima Etapa
+---
 
-A próxima evolução planejada é trabalhar com:
+# RDP Authentication Monitoring
+
+## Objetivo
+
+A etapa RDP foi concluída com a implementação e validação de uma cadeia de detecção para autenticação remota em Windows Server 2022.
+
+Fluxo validado:
 
 ```text
+Event ID 261
+RDP listener connection
+        ↓
+Rule 100160
+        ↓
+Event ID 4625
+wrong password
+        ↓
+Rule 100165
+Failed RDP authentication
+        ↓
+repeated failures
+same user + same IP
+        ↓
+Rule 100170
+RDP Password Guessing
+Level 12
+        ↓
+Event ID 4624
 Logon Type 10
-RemoteInteractive
-RDP
+        ↓
+Rule 100175
+Successful RDP Logon After Password Guessing
+Level 14
 ```
 
-Objetivos:
+## Ambiente
 
-- gerar e identificar Event ID 4624 Type 10;
-- analisar falhas RDP;
-- identificar origem do acesso;
-- criar correlação de brute force RDP;
-- detectar autenticação RDP bem-sucedida após falhas;
-- documentar o cenário como novo caso de investigação.
+```text
+Origem: Windows 10
+Source IP: 192.168.100.20
 
+Destino: Windows Server 2022
+Destination IP: 192.168.100.30
+
+Wazuh Agent: WINSERVER2022
+Agent ID: 002
+
+Conta de teste: SOC-RDP-TEST
+```
+
+## Event ID 261
+
+Canal:
+
+```text
+Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational
+```
+
+Evento:
+
+```text
+Event ID: 261
+Message: Listener RDP-Tcp received a connection
+```
+
+Durante o troubleshooting foi identificado que esse evento possui:
+
+```text
+severityValue = INFORMATION
+```
+
+e segue a árvore:
+
+```text
+60000
+↓
+60009
+↓
+100160
+```
+
+## Rule 100160
+
+```xml
+<rule id="100160" level="5">
+  <if_sid>60009</if_sid>
+  <field name="win.system.providerName" type="pcre2">^Microsoft-Windows-TerminalServices-RemoteConnectionManager$</field>
+  <field name="win.system.eventID">^261$</field>
+  <description>SOC LAB: RDP connection received by Windows Remote Desktop listener.</description>
+  <group>rdp,remote_access,soc_lab,</group>
+  <mitre>
+    <id>T1021.001</id>
+  </mitre>
+</rule>
+```
+
+## Falha RDP com NLA
+
+Durante uma tentativa RDP com senha incorreta:
+
+```text
+Event ID: 4625
+Logon Type: 3
+Authentication Package: NTLM
+Status: 0xC000006D
+SubStatus: 0xC000006A
+Source IP: 192.168.100.20
+```
+
+O laboratório confirmou que RDP com NLA pode gerar `4625 / Logon Type 3`, portanto esse evento isolado não foi considerado suficiente para classificar a falha como RDP.
+
+## Rule 100165
+
+```xml
+<rule id="100165" level="7" timeframe="10">
+  <if_sid>100135</if_sid>
+  <if_matched_sid>100160</if_matched_sid>
+  <description>SOC LAB: Failed Windows authentication associated with a recent RDP connection.</description>
+  <group>authentication_failed,rdp,remote_access,soc_lab,</group>
+  <mitre>
+    <id>T1021.001</id>
+    <id>T1110.001</id>
+  </mitre>
+</rule>
+```
+
+## Rule 100170
+
+```xml
+<rule id="100170" level="12" frequency="4" timeframe="60">
+  <if_matched_sid>100165</if_matched_sid>
+  <same_field>win.eventdata.targetUserName</same_field>
+  <same_field>win.eventdata.ipAddress</same_field>
+  <description>SOC LAB: Repeated RDP authentication failures against the same Windows account from the same source IP.</description>
+  <group>authentication_failed,rdp,brute_force,password_guessing,remote_access,soc_lab,</group>
+  <mitre>
+    <id>T1021.001</id>
+    <id>T1110.001</id>
+  </mitre>
+</rule>
+```
+
+Validação:
+
+```text
+2026-08-27T05:49:28.245+0000
+Rule: 100170
+Level: 12
+User: SOC-RDP-TEST
+Source IP: 192.168.100.20
+Logon Type: 3
+```
+
+## Successful RDP Logon
+
+O login válido foi detectado pela regra nativa:
+
+```text
+Rule ID: 92653
+Event ID: 4624
+Logon Type: 10
+```
+
+## Rule 100175
+
+```xml
+<rule id="100175" level="14" timeframe="300">
+  <if_sid>92653</if_sid>
+  <if_matched_sid>100170</if_matched_sid>
+  <same_field>win.eventdata.targetUserName</same_field>
+  <same_field>win.eventdata.ipAddress</same_field>
+  <description>SOC LAB: Successful RDP logon after repeated password guessing from the same source IP.</description>
+  <group>authentication_success,rdp,password_guessing,valid_accounts,remote_access,soc_lab,</group>
+  <mitre>
+    <id>T1021.001</id>
+    <id>T1078.003</id>
+  </mitre>
+</rule>
+```
+
+Validação final:
+
+```text
+2026-08-27T05:49:28.245+0000
+Rule: 100170
+Level: 12
+User: SOC-RDP-TEST
+Source IP: 192.168.100.20
+
+2026-08-27T05:49:34.744+0000
+Rule: 100175
+Level: 14
+User: SOC-RDP-TEST
+Source IP: 192.168.100.20
+Logon Type: 10
+```
+
+Intervalo aproximado:
+
+```text
+6 segundos
+```
+
+MITRE ATT&CK:
+
+```text
+T1021.001 - Remote Desktop Protocol
+T1110.001 - Password Guessing
+T1078.003 - Local Accounts
+```
+
+Classificação:
+
+```text
+True Positive
+Authorized Security Test
+```
+
+## Troubleshooting
+
+O Event ID 261 chegava ao manager, mas inicialmente não acionava a regra customizada. A análise mostrou que eventos informacionais desse EventChannel passavam pela Rule 60009; por isso a Rule 100160 foi criada como filha dela.
+
+Durante o replay de eventos de `archives.json` pelo `wazuh-logtest`, o `full_log` foi decodificado como `json`, enquanto em produção os eventos eram processados como `windows_eventchannel`. Por isso a validação definitiva foi feita com eventos reais enviados pelo Wazuh Agent.
+
+O `logall_json` foi habilitado temporariamente durante o troubleshooting e depois restaurado para:
+
+```xml
+<logall>no</logall>
+<logall_json>no</logall_json>
+```
+
+Validação final:
+
+```text
+wazuh-analysisd -t: 0
+wazuh-manager: active
+```
+
+## Evidência
+
+```text
+cases/case-100175-rdp-success-after-password-guessing.txt
+```
+
+## Resultado
+
+A etapa RDP foi concluída com sucesso:
+
+```text
+RDP listener monitoring
+Failed RDP authentication
+RDP Password Guessing
+Successful RDP Logon
+Successful RDP Logon After Password Guessing
+MITRE ATT&CK correlation
+True Positive classification
+```

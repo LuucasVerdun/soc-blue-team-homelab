@@ -892,3 +892,76 @@ Os comandos, regras e técnicas documentados têm finalidade exclusivamente educ
 
 Nenhum dos testes descritos deve ser executado em sistemas ou redes sem autorização.
 
+---
+
+# RDP Detection and Correlation
+
+Foi implementado monitoramento específico de autenticação via Remote Desktop Protocol em Windows Server 2022.
+
+A cadeia validada foi:
+
+```text
+Event ID 261
+        ↓
+100160 - RDP connection received
+        ↓
+Event ID 4625
+        ↓
+100165 - Failed RDP authentication
+        ↓
+Repeated failures
+same user + same IP
+        ↓
+100170 - RDP Password Guessing
+Level 12
+        ↓
+Event ID 4624
+Logon Type 10
+        ↓
+100175 - Successful RDP Logon After Password Guessing
+Level 14
+```
+
+Validação final:
+
+```text
+2026-08-27T05:49:28.245+0000
+Rule: 100170
+Level: 12
+User: SOC-RDP-TEST
+Source IP: 192.168.100.20
+
+2026-08-27T05:49:34.744+0000
+Rule: 100175
+Level: 14
+User: SOC-RDP-TEST
+Source IP: 192.168.100.20
+Logon Type: 10
+```
+
+MITRE ATT&CK:
+
+```text
+T1021.001 - Remote Desktop Protocol
+T1110.001 - Password Guessing
+T1078.003 - Local Accounts
+```
+
+Classificação:
+
+```text
+True Positive
+Authorized Security Test
+```
+
+Case:
+
+```text
+cases/case-100175-rdp-success-after-password-guessing.txt
+```
+
+Documentação detalhada:
+
+```text
+docs/windows-authentication-monitoring.md
+```
