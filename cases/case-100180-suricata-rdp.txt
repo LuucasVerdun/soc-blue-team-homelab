@@ -1,0 +1,10 @@
+SOC BLUE TEAM HOMELAB
+CASE: Suricata RDP Network Detection
+
+Detection chain:
+WIN10 -> Suricata -> eve.json -> Wazuh 86601 -> Wazuh 100180
+
+MITRE ATT&CK: T1021.001 - Remote Desktop Protocol
+
+=== WAZUH ALERT ===
+{"timestamp":"2026-08-28T04:43:30.067+0000","rule_id":"100180","level":6,"description":"SOC LAB: Suricata detected an RDP connection attempt from WIN10 to WINSERVER2022.","src_ip":"192.168.100.20","src_port":"49889","dest_ip":"192.168.100.30","dest_port":"3389","suricata_signature_id":"1000001","suricata_signature":"SOC LAB: RDP connection attempt detected","mitre":{"id":["T1021.001"],"tactic":["Lateral Movement"],"technique":["Remote Desktop Protocol"]}}

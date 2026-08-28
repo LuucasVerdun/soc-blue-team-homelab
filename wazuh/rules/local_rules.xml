@@ -185,5 +185,30 @@
     </mitre>
   </rule>
 
+  <rule id="100180" level="6">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature_id">^1000001$</field>
+
+    <description>SOC LAB: Suricata detected an RDP connection attempt from WIN10 to WINSERVER2022.</description>
+
+    <group>suricata,ids,rdp,network_detection,soc_lab,</group>
+
+    <mitre>
+      <id>T1021.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100185" level="8">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature_id">^1000002$</field>
+
+    <description>SOC LAB: Suricata detected a possible TCP port scan against WINSERVER2022.</description>
+
+    <group>suricata,ids,network_scan,reconnaissance,soc_lab,</group>
+
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
 
 </group>

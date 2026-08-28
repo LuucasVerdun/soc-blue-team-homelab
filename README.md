@@ -1,189 +1,291 @@
 # SOC Blue Team Home Lab
 
-Laboratório prático de Blue Team e Security Operations Center (SOC), desenvolvido para estudo de monitoramento, detecção, correlação de eventos, investigação e triagem de incidentes utilizando Wazuh, Sysmon, Windows Security Event Log e ferramentas auxiliares.
+Laboratório prático de Security Operations Center (SOC) focado em Blue Team, monitoramento, detecção, correlação e investigação de eventos de segurança.
 
-O projeto foi construído em ambiente virtualizado e documenta não apenas as detecções finais, mas também os testes, troubleshooting e decisões tomadas durante a implementação.
+O ambiente foi construído para reproduzir fluxos reais de um SOC: coleta de telemetria de endpoint, autenticação Windows, análise de processos, correlação de eventos, monitoramento de RDP e detecção de rede com Suricata integrado ao Wazuh.
+
+> Todos os testes descritos neste repositório foram executados em ambiente de laboratório controlado e autorizado.
 
 ---
 
-# Objetivos
+## Objetivos
 
-Este laboratório tem como objetivos:
+Este projeto tem como objetivos:
 
 - desenvolver experiência prática em operações de SOC;
-- compreender geração, coleta e análise de logs;
-- trabalhar com telemetria de endpoints Windows;
-- criar e testar regras de detecção;
-- realizar correlação temporal de eventos;
-- investigar árvores de processos;
-- detectar falhas de autenticação;
-- detectar brute force e password guessing;
-- correlacionar falhas de autenticação com logons bem-sucedidos;
-- detectar bloqueio de contas;
-- correlacionar password guessing com account lockout;
-- utilizar MITRE ATT&CK para classificação de comportamento;
-- realizar triagem de alertas;
-- documentar casos de investigação;
-- desenvolver pequenas ferramentas para auxiliar atividades de SOC.
+- compreender a geração, coleta e análise de logs;
+- criar e ajustar regras de detecção;
+- correlacionar múltiplos eventos para identificar comportamento suspeito;
+- trabalhar com telemetria de endpoint e rede;
+- mapear detecções para MITRE ATT&CK;
+- praticar triagem, investigação e documentação de alertas;
+- reduzir falsos positivos e alert fatigue por meio de tuning;
+- construir evidências técnicas reproduzíveis.
 
 ---
 
-# Arquitetura do Laboratório
+## Arquitetura do Laboratório
 
-```mermaid
-flowchart TD
-    WIN["Windows 10 Endpoint"]
-    SYSMON["Sysmon<br/>Process Telemetry"]
-    SECLOG["Windows Security Log"]
-    AGENT["Wazuh Agent"]
-    MANAGER["Wazuh Manager<br/>soc01"]
-    RULES["Detection Rules"]
-    MITRE["MITRE ATT&CK"]
-    ALERTS["Alerts"]
-    INVEST["SOC Investigation"]
-
-    WIN --> SYSMON
-    WIN --> SECLOG
-    SYSMON --> AGENT
-    SECLOG --> AGENT
-    AGENT --> MANAGER
-    MANAGER --> RULES
-    RULES --> MITRE
-    RULES --> ALERTS
-    ALERTS --> INVEST
+```text
+                         WINDOWS 11 HOST
+                               |
+                        VirtualBox 7.x
+                               |
+          +--------------------+--------------------+
+          |                    |                    |
+          |                    |                    |
+      SOC01                WIN10              WINSERVER2022
+   Ubuntu Server        Windows 10          Windows Server 2022
+  192.168.100.10      192.168.100.20        192.168.100.30
+          |                    |                    |
+          |                    +---------+----------+
+          |                              |
+          |                     Host-Only Network
+          |                              |
+          |                         east-west
+          |                           traffic
+          |                              |
+          +------------------------------+
+                         |
+                       enp0s9
+                  Passive Sensor NIC
+                         |
+                      Suricata
+                         |
+                      eve.json
+                         |
+                       Wazuh
+                         |
+              Detection / Correlation
 ```
+
+### Redes utilizadas
+
+```text
+NAT
+10.0.2.0/24
+
+Host-Only
+192.168.100.0/24
+```
+
+A rede NAT fornece conectividade externa para as VMs quando necessário.
+
+A rede Host-Only é usada para comunicação e simulações internas entre os sistemas do laboratório.
 
 ---
 
-# Ambiente
+## Ambiente
 
-## Host
-
-```text
-Sistema: Windows 11
-Virtualização: VirtualBox
-```
-
-## Wazuh Server
+### Host
 
 ```text
-Hostname: soc01
-Sistema: Ubuntu Server 24.04
-IP Host-Only: 192.168.100.10
-Wazuh: 4.14.7
+Operating System: Windows 11
+Virtualization:   VirtualBox 7.x
+RAM:              24 GB
+CPU:              Intel Core i5 13th Gen
 ```
 
-## Windows Endpoint
+### SOC01
 
 ```text
-Sistema: Windows 10
-IP Host-Only: 192.168.100.20
-Wazuh Agent: ativo
-Sysmon: ativo
+Operating System: Ubuntu Server 24.04.4 LTS
+Hostname:         soc01
+
+NAT:
+enp0s3
+10.0.2.15/24
+
+Management:
+enp0s8
+192.168.100.10/24
+
+Passive sensor:
+enp0s9
+No IPv4 address
+No IPv6 link-local address
+Promiscuous mode enabled
 ```
 
----
+Principais componentes:
 
-# Componentes
-
-O laboratório atualmente utiliza:
-
-- Windows 10
-- Ubuntu Server
-- Wazuh Manager
-- Wazuh Agent
+- Wazuh Manager 4.14.7
+- Wazuh Indexer
 - Wazuh Dashboard
-- Sysmon
-- Windows Security Event Log
-- PowerShell Logging
-- Bash
+- Suricata 7.0.3
 - jq
-- MITRE ATT&CK
-- Git
-- GitHub
+- ferramentas Linux de análise e troubleshooting
+
+### Windows 10 Endpoint
+
+```text
+Hostname: WIN10
+Host-Only: 192.168.100.20
+NAT:       10.0.2.3
+```
+
+Componentes:
+
+- Wazuh Agent
+- Sysmon 15.21
+- PowerShell logging
+- Windows Security Event Log
+
+### Windows Server 2022
+
+```text
+Hostname: WINSERVER2022
+Host-Only: 192.168.100.30
+RDP:       TCP/3389
+```
+
+Uso no laboratório:
+
+- autenticação Windows;
+- Remote Desktop Protocol;
+- falhas de login;
+- password guessing;
+- account lockout;
+- successful RDP logon;
+- alvo de monitoramento de rede.
 
 ---
 
-# Sysmon + Wazuh
+## Componentes
 
-O Sysmon foi configurado no endpoint Windows para fornecer telemetria detalhada de processos e outras atividades do sistema.
+| Componente | Função |
+|---|---|
+| Wazuh | SIEM/XDR, análise, correlação e alertas |
+| Sysmon | Telemetria detalhada de endpoint Windows |
+| Windows Event Logs | Autenticação, segurança e PowerShell |
+| Suricata | Network IDS e inspeção de tráfego |
+| EVE JSON | Telemetria estruturada gerada pelo Suricata |
+| MITRE ATT&CK | Classificação das técnicas observadas |
+| VirtualBox | Virtualização e segmentação do laboratório |
+| Bash / jq | Consulta, filtragem e investigação de alertas |
 
-Entre os eventos utilizados no laboratório estão:
+---
+
+# Endpoint Monitoring
+
+## Sysmon + Wazuh
+
+O Sysmon foi instalado no Windows 10 e integrado ao Wazuh.
+
+Canal monitorado:
 
 ```text
-Event ID 1  - Process Create
-Event ID 3  - Network Connection
-Event ID 11 - File Create
-Event ID 22 - DNS Query
+Microsoft-Windows-Sysmon/Operational
 ```
 
-O Event ID 1 fornece informações importantes para investigação, incluindo:
+A configuração utilizada prioriza eventos úteis para investigação de SOC, incluindo:
+
+- Process Create;
+- Network Connect;
+- File Create;
+- DNS Query.
+
+Eventos de Registry Event foram reduzidos para evitar excesso de ruído durante esta fase do laboratório.
+
+### Process Creation
+
+A telemetria de criação de processos permite analisar:
 
 ```text
-ProcessGuid
-ProcessId
-Image
-CommandLine
-CurrentDirectory
-User
-IntegrityLevel
-Hashes
-ParentProcessGuid
-ParentProcessId
-ParentImage
-ParentCommandLine
+Parent process
+      |
+      v
+Child process
+      |
+      v
+Command line
+      |
+      v
+User / Integrity Level
 ```
+
+Essa visibilidade foi usada para detectar cadeias envolvendo PowerShell, `cmd.exe` e comandos de discovery.
 
 ---
 
 # PowerShell Monitoring
 
-Foi validada a coleta de:
+O PowerShell Script Block Logging foi habilitado e coletado pelo Wazuh.
+
+Evento principal:
 
 ```text
-Microsoft-Windows-PowerShell/Operational
 Event ID 4104
+Microsoft-Windows-PowerShell/Operational
 ```
 
-Regra customizada:
+Foi criado um marcador controlado para validar a ingestão do evento.
+
+## Rule 100100
 
 ```text
 Rule ID: 100100
 Level:   10
-MITRE:   T1059.001
+MITRE:   T1059.001 - PowerShell
 ```
+
+Objetivo:
+
+Detectar um Script Block contendo o marcador controlado utilizado no laboratório.
 
 ---
 
-# Custom Detection Rules
+# Process Execution and Discovery Detection
 
-As regras customizadas são mantidas em:
-
-```text
-wazuh/rules/local_rules.xml
-```
-
-Principais regras implementadas:
+## Rule 100110
 
 ```text
-100100 - PowerShell Script Block marker detection
-100110 - PowerShell spawning elevated cmd.exe
-100120 - whoami executed by elevated cmd.exe
-100130 - Discovery command sequence
-100135 - Wrong password for existing Windows account
-100140 - Password Guessing
-100145 - Successful Windows network logon
-100150 - Successful logon after Password Guessing
-100155 - Account lockout after Password Guessing
+Rule ID: 100110
+Level:   8
+MITRE:   T1059.003 - Windows Command Shell
 ```
+
+Detecta:
+
+```text
+PowerShell
+    |
+    v
+cmd.exe
+```
+
+em contexto de alta integridade.
 
 ---
 
-# Discovery Detection
+## Rule 100120
+
+```text
+Rule ID: 100120
+Level:   10
+MITRE:
+T1033     - System Owner/User Discovery
+T1059.003 - Windows Command Shell
+```
+
+Detecta execução de:
+
+```text
+whoami
+```
+
+quando associada à cadeia de processos monitorada.
+
+---
 
 ## Rule 100130
 
-Detecta múltiplos comandos de Discovery dentro do mesmo fluxo de execução:
+```text
+Rule ID: 100130
+Level:   12
+```
+
+Detecta uma sequência controlada de discovery:
 
 ```text
 whoami
@@ -192,39 +294,71 @@ ipconfig
 net user
 ```
 
-Resultado:
-
-```text
-Rule ID: 100130
-Level:   12
-```
-
 MITRE ATT&CK:
 
 ```text
 T1033     - System Owner/User Discovery
 T1016     - System Network Configuration Discovery
-T1087.001 - Local Account
+T1087.001 - Local Account Discovery
 T1059.003 - Windows Command Shell
 ```
 
-Exemplo de árvore:
+Classificação do teste:
 
 ```text
-powershell.exe
-└── cmd.exe
-    ├── whoami.exe
-    ├── HOSTNAME.EXE
-    ├── ipconfig.exe
-    └── net.exe
-        └── net1.exe
+True Positive
+Authorized Security Test
 ```
 
-Case:
+Evidência:
 
 ```text
 cases/case-100130-discovery.txt
 ```
+
+---
+
+# Process Tree Investigation Utility
+
+Foi criada uma ferramenta Bash para investigação de árvores de processo em alertas Wazuh.
+
+Arquivo:
+
+```text
+scripts/process-tree.sh
+```
+
+A ferramenta permite pesquisar por:
+
+```text
+ProcessGuid
+Rule ID
+```
+
+e reconstruir processos descendentes.
+
+Principais recursos:
+
+```text
+--days
+--summary
+--report
+```
+
+Também realiza busca em:
+
+```text
+current alerts.json
+historical ossec-alerts-*.json
+```
+
+Os alertas históricos são consultados em estruturas como:
+
+```text
+/var/ossec/logs/alerts/YYYY/Mon/ossec-alerts-*.json
+```
+
+O processamento utiliza `jq` e tolera registros JSON incompletos por meio de parsing seguro.
 
 Documentação:
 
@@ -234,159 +368,119 @@ docs/process-tree-investigation.md
 
 ---
 
-# Process Tree Investigation Utility
-
-Foi desenvolvida uma ferramenta em Bash:
-
-```text
-scripts/process-tree.sh
-```
-
-Exemplos:
-
-```bash
-./scripts/process-tree.sh --rule 100130 --days 7 --summary
-```
-
-```bash
-./scripts/process-tree.sh --rule 100130 --days 7 --report
-```
-
-Funcionalidades:
-
-- pesquisa por ProcessGuid;
-- pesquisa por Rule ID;
-- reconstrução recursiva de processos filhos;
-- correlação por `ProcessGuid` e `ParentProcessGuid`;
-- consulta ao `alerts.json`;
-- consulta aos históricos `ossec-alerts-*.json`;
-- janela temporal com `--days`;
-- modo resumido;
-- geração de relatório;
-- tratamento de JSON incompleto;
-- suporte à rotação de logs.
-
----
-
 # Windows Authentication Monitoring
 
-A etapa de autenticação utiliza principalmente:
+A segunda camada do laboratório concentra-se em eventos de autenticação Windows.
+
+Eventos analisados:
 
 ```text
-4625 - Failed Logon
-4624 - Successful Logon
-4740 - Account Locked Out
-```
-
-Documentação:
-
-```text
-docs/windows-authentication-monitoring.md
+4624 - Successful logon
+4625 - Failed logon
+4740 - User account locked out
 ```
 
 ---
 
-# Rule 60122 - Individual Logon Failure
+## Event ID 4625 - Failed Logon
 
-Uma autenticação inválida gera:
+Um teste com usuário inexistente gerou:
 
 ```text
-Event ID: 4625
+Event ID:       4625
+Logon Type:     3
+Auth Package:   NTLM
+Source Address: 127.0.0.1
+Status:         0xC000006D
+SubStatus:      0xC0000064
 ```
 
-Exemplo:
+O Wazuh classificou o evento pela regra nativa:
 
 ```text
-Status:      0xC000006D
-SubStatus:   0xC0000064
-```
-
-No Wazuh:
-
-```text
-Rule ID:      60122
-Level:        5
-Description:  Logon Failure - Unknown user or bad password
+60122
 ```
 
 ---
 
-# Rule 60204 - Multiple Windows Logon Failures
+## Rule 60204 - Multiple Windows Logon Failures
 
-A regra nativa 60204 correlaciona:
+Regra nativa do Wazuh:
 
 ```text
-8 falhas
-mesmo IP
-até 240 segundos
+Rule:      60204
+Level:     10
+Frequency: 8
+Timeframe: 240 seconds
+MITRE:     T1110
+```
+
+Utilizada para detectar múltiplas falhas de autenticação Windows.
+
+---
+
+## Rule 100135 - Wrong Password for Existing Account
+
+Foi necessário diferenciar:
+
+```text
+usuário inexistente
+```
+
+de:
+
+```text
+usuário existente + senha incorreta
+```
+
+A regra `100135` utiliza:
+
+```text
+SubStatus 0xC000006A
+```
+
+Configuração lógica:
+
+```text
+Parent: 60122
+Condition: win.eventdata.subStatus = 0xc000006a
 ```
 
 Resultado:
 
 ```text
-Rule ID:      60204
-Level:        10
-MITRE:        T1110
-Technique:    Brute Force
+Rule:  100135
+Level: 6
 ```
 
 ---
 
-# Rule 100135 - Wrong Password for Existing Account
+## Rule 100140 - Password Guessing
 
-```xml
-<rule id="100135" level="6">
-  <if_sid>60122</if_sid>
-  <field name="win.eventdata.subStatus" type="pcre2">(?i)^0xc000006a$</field>
-  <description>SOC LAB: Windows logon failure caused by incorrect password for an existing account.</description>
-  <group>authentication_failed,password_failure,soc_lab,</group>
-</rule>
-```
-
-O código:
+Correlação de várias falhas contra:
 
 ```text
-0xC000006A
-```
-
-representa senha incorreta para uma conta existente.
-
----
-
-# Rule 100140 - Password Guessing
-
-```xml
-<rule id="100140" level="12" frequency="5" timeframe="60">
-  <if_matched_sid>100135</if_matched_sid>
-  <same_field>win.eventdata.targetUserName</same_field>
-  <same_field>win.eventdata.ipAddress</same_field>
-  <description>SOC LAB: Repeated password failures against the same Windows account from the same source IP.</description>
-  <group>authentication_failed,brute_force,password_guessing,soc_lab,</group>
-  <mitre>
-    <id>T1110.001</id>
-  </mitre>
-</rule>
-```
-
-Critérios:
-
-```text
-5 falhas
 mesmo usuário
-mesmo IP
-até 60 segundos
++
+mesmo endereço IP
 ```
 
-Resultado:
+Configuração:
 
 ```text
-Rule ID:      100140
-Level:        12
-MITRE:        T1110.001
-Technique:    Password Guessing
+Rule:      100140
+Level:     12
+Frequency: 5
+Timeframe: 60 seconds
 ```
 
-Case:
+MITRE ATT&CK:
+
+```text
+T1110.001 - Password Guessing
+```
+
+Evidência:
 
 ```text
 cases/case-100140-password-guessing.txt
@@ -394,33 +488,49 @@ cases/case-100140-password-guessing.txt
 
 ---
 
-# Event ID 4624 - Successful Logon
+# Successful Authentication
 
-Foram validados:
+## Event ID 4624
+
+Foram analisados diferentes Logon Types.
+
+### Logon Type 2
 
 ```text
-Type 2 - Interactive
-Type 3 - Network
+Interactive logon
 ```
 
-O Type 3 foi utilizado como base para correlação com Password Guessing.
+Regra nativa observada:
+
+```text
+60118
+```
+
+### Logon Type 3
+
+```text
+Network logon
+```
+
+Regra nativa observada:
+
+```text
+60106
+```
 
 ---
 
-# Rule 100145 - Successful Network Logon
+## Rule 100145 - Successful Network Logon
 
-```xml
-<rule id="100145" level="4">
-  <if_sid>60106</if_sid>
-  <field name="win.system.eventID">^4624$</field>
-  <field name="win.eventdata.logonType">^3$</field>
-  <description>SOC LAB: Successful Windows network logon.</description>
-  <group>authentication_success,network_logon,soc_lab,</group>
-  <mitre>
-    <id>T1078</id>
-  </mitre>
-</rule>
+```text
+Rule ID: 100145
+Level:   4
+Parent:  60106
 ```
+
+Objetivo:
+
+Identificar autenticação de rede bem-sucedida.
 
 MITRE:
 
@@ -430,44 +540,52 @@ T1078 - Valid Accounts
 
 ---
 
-# Rule 100150 - Successful Logon After Password Guessing
+## Rule 100150 - Successful Logon After Password Guessing
 
-```xml
-<rule id="100150" level="14" timeframe="300">
-  <if_sid>100145</if_sid>
-  <if_matched_sid>100140</if_matched_sid>
-  <same_field>win.eventdata.targetUserName</same_field>
-  <same_field>win.eventdata.ipAddress</same_field>
-  <description>SOC LAB: Successful Windows network logon after repeated password guessing attempts.</description>
-  <group>authentication_success,possible_account_compromise,password_guessing,soc_lab,</group>
-  <mitre>
-    <id>T1078</id>
-  </mitre>
-</rule>
-```
-
-Lógica:
+A regra correlaciona:
 
 ```text
 Password Guessing
-↓
+Rule 100140
+      |
+      v
 Successful Network Logon
-↓
-Possible Account Compromise
+Rule 100145
 ```
 
-Resultado validado:
+utilizando:
 
 ```text
-Rule ID:      100150
-Level:        14
-User:         vboxuser
-Source IP:    127.0.0.1
-Logon Type:   3
-MITRE:        T1078
+same target username
++
+same source IP
 ```
 
-Case:
+Configuração:
+
+```text
+Rule:      100150
+Level:     14
+Timeframe: 300 seconds
+```
+
+Fluxo:
+
+```text
+Repeated authentication failures
+        |
+        v
+Password Guessing
+Rule 100140
+        |
+        v
+Successful authentication
+        |
+        v
+Rule 100150
+```
+
+Evidência:
 
 ```text
 cases/case-100150-success-after-password-guessing.txt
@@ -475,121 +593,84 @@ cases/case-100150-success-after-password-guessing.txt
 
 ---
 
-# Event ID 4740 - Account Lockout
+# Account Lockout Detection
 
-Foi configurado e validado o bloqueio de conta local.
+## Event ID 4740
 
-Política utilizada:
+O Windows foi configurado para bloquear a conta após repetidas falhas de autenticação.
+
+Política utilizada durante os testes:
 
 ```text
-Lockout threshold:           10
-Lockout duration:            10 minutes
-Lockout observation window:  10 minutes
+Account lockout threshold: 10 attempts
+Lockout duration:          10 minutes
+Observation window:        10 minutes
 ```
 
-Uma conta dedicada foi utilizada:
+O Event ID 4740 representa:
 
 ```text
-SOC-LAB-LOCKOUT
-```
-
-Após atingir o limite de tentativas inválidas, o Windows gerou:
-
-```text
-Event ID:      4740
-User:          SOC-LAB-LOCKOUT
-Description:   A user account was locked out
+A user account was locked out
 ```
 
 ---
 
-# Rule 60115 - User Account Locked Out
+## Rule 60115
 
-O Wazuh classificou o Event ID 4740 com a regra nativa:
+Regra nativa do Wazuh observada para account lockout:
 
 ```text
-Rule ID:      60115
-Level:        9
-Description:  User account locked out (multiple login errors)
-User:         SOC-LAB-LOCKOUT
+Rule: 60115
+Level: 9
 ```
 
-MITRE ATT&CK:
+MITRE:
 
 ```text
 T1110 - Brute Force
 T1531 - Account Access Removal
 ```
 
-Táticas:
-
-```text
-Credential Access
-Impact
-```
-
 ---
 
-# Rule 100155 - Account Lockout After Password Guessing
+## Rule 100155 - Account Lockout After Password Guessing
 
-Foi criada uma correlação customizada entre:
-
-```text
-100140 - Password Guessing
-↓
-60115 - Account Locked Out
-↓
-100155 - Account Lockout After Password Guessing
-```
-
-Regra:
-
-```xml
-<rule id="100155" level="13" timeframe="300">
-  <if_sid>60115</if_sid>
-  <if_matched_sid>100140</if_matched_sid>
-  <same_field>win.eventdata.targetUserName</same_field>
-
-  <description>SOC LAB: Windows account locked out after repeated password guessing attempts.</description>
-
-  <group>authentication_failed,account_lockout,password_guessing,soc_lab,</group>
-
-  <mitre>
-    <id>T1110.001</id>
-    <id>T1531</id>
-  </mitre>
-</rule>
-```
-
-Critérios:
+A regra correlaciona:
 
 ```text
-Password Guessing previamente detectado
-+
-mesmo targetUserName
-+
-Event ID 4740
-+
-janela de 300 segundos
+Password Guessing
+100140
+      |
+      v
+Account Lockout
+60115
+      |
+      v
+100155
 ```
 
-Resultado validado:
+Configuração:
 
 ```text
-Rule ID:      100155
-Level:        13
-Description:  Windows account locked out after repeated password guessing attempts.
-User:         SOC-LAB-LOCKOUT
+Rule:      100155
+Level:     13
+Timeframe: 300 seconds
 ```
 
-MITRE:
+Correlação:
+
+```text
+same target username
+```
+
+MITRE ATT&CK:
 
 ```text
 T1110.001 - Password Guessing
 T1531     - Account Access Removal
 ```
 
-Case:
+Evidência:
 
 ```text
 cases/case-100155-account-lockout-after-password-guessing.txt
@@ -603,326 +684,246 @@ cases/case-100155-account-lockout-after-password-guessing.txt
 
 ```text
 4625
-↓
+  |
+  v
 60122
-↓
+  |
+  v
 100135
-↓
+Wrong password
+  |
+  v
 100140
-T1110.001 - Password Guessing
-↓
+Password Guessing
+  |
+  v
 4624 Type 3
-↓
+  |
+  v
+60106
+  |
+  v
 100145
-↓
+Successful Network Logon
+  |
+  v
 100150
-T1078 - Valid Accounts
+Successful Logon After Password Guessing
 ```
+
+---
 
 ## Password Guessing → Account Lockout
 
 ```text
 4625
-↓
-60122
-↓
+  |
+  v
 100135
-↓
+  |
+  v
 100140
-T1110.001 - Password Guessing
-↓
+Password Guessing
+  |
+  v
 4740
-↓
+  |
+  v
 60115
-T1110 + T1531
-↓
+Account Locked
+  |
+  v
 100155
-T1110.001 + T1531
+Account Lockout After Password Guessing
 ```
-
----
-
-# SOC Interpretation
-
-As correlações implementadas permitem distinguir cenários com diferentes níveis de criticidade.
-
-Exemplos:
-
-```text
-Falha isolada
-→ baixa contextualização
-```
-
-```text
-Múltiplas falhas
-→ possível brute force
-```
-
-```text
-Password Guessing contra a mesma conta
-→ maior contexto de Credential Access
-```
-
-```text
-Password Guessing + sucesso
-→ possível comprometimento de credenciais
-```
-
-```text
-Password Guessing + Account Lockout
-→ possível ataque causando indisponibilidade da conta
-```
-
----
-
-# SOC Triage
-
-Os cenários foram realizados em ambiente controlado.
-
-Classificação utilizada:
-
-```text
-Classification: True Positive
-Disposition: Close - Authorized Security Test
-```
-
-Isso indica que:
-
-- o comportamento realmente ocorreu;
-- a regra detectou corretamente;
-- não se tratava de atividade maliciosa real;
-- o teste foi autorizado.
-
----
-
-# MITRE ATT&CK Coverage
-
-| Technique | Description |
-|---|---|
-| T1059.001 | PowerShell |
-| T1059.003 | Windows Command Shell |
-| T1033 | System Owner/User Discovery |
-| T1016 | System Network Configuration Discovery |
-| T1087.001 | Local Account |
-| T1110 | Brute Force |
-| T1110.001 | Password Guessing |
-| T1078 | Valid Accounts |
-| T1531 | Account Access Removal |
-
----
-
-# Project Structure
-
-```text
-soc-blue-team-homelab/
-│
-├── README.md
-├── .gitignore
-│
-├── cases/
-│   ├── case-100130-discovery.txt
-│   ├── case-100140-password-guessing.txt
-│   ├── case-100150-success-after-password-guessing.txt
-│   └── case-100155-account-lockout-after-password-guessing.txt
-│
-├── docs/
-│   ├── process-tree-investigation.md
-│   └── windows-authentication-monitoring.md
-│
-├── scripts/
-│   └── process-tree.sh
-│
-└── wazuh/
-    └── rules/
-        └── local_rules.xml
-```
-
----
-
-# Current Detection Flow
-
-```text
-Windows Endpoint
-      |
-      +---- Sysmon
-      |       |
-      |       +---- Process Creation
-      |       +---- Process Tree
-      |       +---- Discovery Detection
-      |
-      +---- Security Event Log
-              |
-              +---- 4625 Failed Logon
-              |        |
-              |        +---- 60122
-              |        +---- 60204
-              |        +---- 100135
-              |        +---- 100140
-              |                  |
-              |                  +---- 4624 Type 3
-              |                  |       |
-              |                  |       +---- 100145
-              |                  |       +---- 100150
-              |                  |
-              |                  +---- 4740
-              |                          |
-              |                          +---- 60115
-              |                          +---- 100155
-              |
-              +---- Authentication Correlation
-```
-
----
-
-# Troubleshooting Realizado
-
-Durante o desenvolvimento foram investigados e resolvidos problemas relacionados a:
-
-- instalação do Wazuh Agent;
-- comunicação entre endpoint e Wazuh Manager;
-- configuração do Sysmon;
-- coleta de PowerShell;
-- criação de regras customizadas;
-- sintaxe XML;
-- `frequency`;
-- `timeframe`;
-- `if_sid`;
-- `if_matched_sid`;
-- `same_field`;
-- conflitos entre regras de correlação;
-- diferenciação entre usuário inexistente e senha incorreta;
-- autenticação SMB e erro 1219;
-- análise de Logon Types;
-- Event ID 4740;
-- ausência de `ipAddress` no evento 4740;
-- correlação por `targetUserName`;
-- correlação temporal entre Password Guessing e Account Lockout.
-
----
-
-# Status
-
-Implementado:
-
-```text
-[OK] Wazuh Manager
-[OK] Windows Wazuh Agent
-[OK] Sysmon
-[OK] PowerShell Logging
-[OK] Process Tree investigation
-[OK] Discovery detection
-[OK] SOC Triage
-[OK] Event ID 4625 monitoring
-[OK] Rule 60122 analysis
-[OK] Rule 60204 validation
-[OK] Rule 100135
-[OK] Rule 100140
-[OK] Password Guessing detection
-[OK] Event ID 4624 monitoring
-[OK] Logon Type 2 analysis
-[OK] Logon Type 3 analysis
-[OK] Rule 100145
-[OK] Rule 100150
-[OK] Failed-to-successful authentication correlation
-[OK] Event ID 4740 monitoring
-[OK] Rule 60115 validation
-[OK] Rule 100155
-[OK] Password Guessing-to-Account Lockout correlation
-[OK] MITRE ATT&CK mapping
-```
-
----
-
-# Next Steps
-
-Próxima etapa:
-
-```text
-RDP Authentication Monitoring
-```
-
-Objetivos:
-
-- analisar Logon Type 10;
-- validar Event ID 4624 RemoteInteractive;
-- analisar falhas RDP;
-- identificar source IP;
-- correlacionar brute force RDP;
-- detectar sucesso RDP após falhas;
-- criar regras customizadas quando necessário;
-- documentar um novo caso SOC.
-
-Etapas futuras:
-
-- Windows Server integration;
-- Active Directory;
-- privileged logon monitoring;
-- privilege escalation;
-- persistence;
-- Windows Defender;
-- malware monitoring;
-- Suricata;
-- Zeek;
-- network telemetry;
-- DNS threat detection;
-- command-and-control detection;
-- lateral movement;
-- threat hunting;
-- additional incident cases;
-- dashboards;
-- Splunk integration;
-- SIEM comparison;
-- SOAR.
-
----
-
-# Disclaimer
-
-Todos os testes presentes neste projeto foram realizados em ambiente controlado e de laboratório.
-
-Os comandos, regras e técnicas documentados têm finalidade exclusivamente educacional, voltada ao estudo de:
-
-- Blue Team;
-- SOC;
-- SIEM;
-- Detection Engineering;
-- Threat Hunting;
-- DFIR;
-- Cybersecurity.
-
-Nenhum dos testes descritos deve ser executado em sistemas ou redes sem autorização.
 
 ---
 
 # RDP Detection and Correlation
 
-Foi implementado monitoramento específico de autenticação via Remote Desktop Protocol em Windows Server 2022.
+Foi implementado monitoramento específico de autenticação via Remote Desktop Protocol no Windows Server 2022.
 
-A cadeia validada foi:
+Um detalhe importante identificado durante os testes é que falhas de autenticação RDP com Network Level Authentication podem aparecer no Security Log como:
 
 ```text
-Event ID 261
-        ↓
-100160 - RDP connection received
-        ↓
 Event ID 4625
-        ↓
-100165 - Failed RDP authentication
-        ↓
-Repeated failures
-same user + same IP
-        ↓
-100170 - RDP Password Guessing
-Level 12
-        ↓
-Event ID 4624
-Logon Type 10
-        ↓
-100175 - Successful RDP Logon After Password Guessing
-Level 14
+Logon Type 3
 ```
 
-Validação final:
+Portanto, um `4625 Type 3` isolado não deve ser automaticamente classificado como falha RDP.
+
+Para aumentar a precisão, foi utilizada correlação com telemetria do serviço Remote Desktop.
+
+---
+
+## Event ID 261
+
+Provider:
+
+```text
+Microsoft-Windows-TerminalServices-RemoteConnectionManager
+```
+
+Evento:
+
+```text
+261
+Listener RDP-Tcp received a connection
+```
+
+A regra nativa Wazuh utilizada como parent foi:
+
+```text
+60009
+```
+
+---
+
+## Rule 100160 - RDP Connection Received
+
+```text
+Rule:  100160
+Level: 5
+MITRE: T1021.001
+```
+
+Detecta o Event ID 261 do RemoteConnectionManager.
+
+---
+
+## Rule 100165 - Failed Authentication Associated with RDP
+
+Correlação:
+
+```text
+Recent RDP connection
+100160
+      +
+Failed Windows authentication
+100135
+```
+
+Resultado:
+
+```text
+Rule:  100165
+Level: 7
+```
+
+MITRE:
+
+```text
+T1021.001 - Remote Desktop Protocol
+T1110.001 - Password Guessing
+```
+
+---
+
+## Rule 100170 - Repeated RDP Authentication Failures
+
+Correlação:
+
+```text
+same target username
++
+same source IP
+```
+
+Configuração validada:
+
+```text
+Rule:      100170
+Level:     12
+Frequency: 4
+Timeframe: 60 seconds
+```
+
+MITRE:
+
+```text
+T1021.001 - Remote Desktop Protocol
+T1110.001 - Password Guessing
+```
+
+---
+
+## Successful RDP Logon
+
+Um login RDP bem-sucedido gerou:
+
+```text
+Event ID:   4624
+Logon Type: 10
+```
+
+A regra nativa Wazuh identificada foi:
+
+```text
+92653
+```
+
+---
+
+## Rule 100175 - Successful RDP Logon After Password Guessing
+
+Correlação final:
+
+```text
+Repeated RDP failures
+100170
+       |
+       v
+Successful RDP logon
+92653
+       |
+       v
+100175
+```
+
+Configuração:
+
+```text
+Rule:      100175
+Level:     14
+Timeframe: 300 seconds
+```
+
+Correlação:
+
+```text
+same target username
++
+same source IP
+```
+
+MITRE ATT&CK:
+
+```text
+T1021.001 - Remote Desktop Protocol
+T1078.003 - Local Accounts
+```
+
+### Validação
+
+Usuário controlado:
+
+```text
+SOC-RDP-TEST
+```
+
+Origem:
+
+```text
+192.168.100.20
+```
+
+Alvo:
+
+```text
+192.168.100.30
+```
+
+Alertas finais:
 
 ```text
 2026-08-27T05:49:28.245+0000
@@ -930,7 +931,11 @@ Rule: 100170
 Level: 12
 User: SOC-RDP-TEST
 Source IP: 192.168.100.20
+```
 
+seguido por:
+
+```text
 2026-08-27T05:49:34.744+0000
 Rule: 100175
 Level: 14
@@ -939,12 +944,10 @@ Source IP: 192.168.100.20
 Logon Type: 10
 ```
 
-MITRE ATT&CK:
+Intervalo aproximado:
 
 ```text
-T1021.001 - Remote Desktop Protocol
-T1110.001 - Password Guessing
-T1078.003 - Local Accounts
+6 seconds
 ```
 
 Classificação:
@@ -954,14 +957,903 @@ True Positive
 Authorized Security Test
 ```
 
-Case:
+Evidência:
 
 ```text
 cases/case-100175-rdp-success-after-password-guessing.txt
 ```
 
+---
+
+# Suricata Network Monitoring
+
+A fase seguinte adicionou uma camada de Network Detection and Response ao laboratório por meio do Suricata.
+
+## Passive Sensor Architecture
+
+O SOC01 possui uma terceira interface:
+
+```text
+enp0s9
+```
+
+Características:
+
+```text
+IPv4:            none
+IPv6 link-local: none
+Capture:         AF_PACKET
+Promiscuous:     Allow All
+```
+
+A interface não é utilizada para gerenciamento.
+
+Gerenciamento permanece em:
+
+```text
+enp0s8
+192.168.100.10
+```
+
+O sensor foi validado capturando tráfego unicast entre:
+
+```text
+WIN10          192.168.100.20
+WINSERVER2022  192.168.100.30
+```
+
+---
+
+## Suricata Configuration
+
+Versão:
+
+```text
+Suricata 7.0.3 RELEASE
+```
+
+HOME_NET:
+
+```text
+192.168.100.0/24
+```
+
+Capture mode:
+
+```text
+AF_PACKET
+```
+
+Interface:
+
+```text
+enp0s9
+```
+
+Ruleset carregado:
+
+```text
+ET Open / suricata.rules
++
+local.rules
+```
+
+O engine foi validado com:
+
+```text
+2 rule files processed
+0 rules failed
+Engine started
+```
+
+---
+
+## RDP Protocol Visibility
+
+O Suricata identificou tráfego RDP real entre os endpoints:
+
+```text
+192.168.100.20 -> 192.168.100.30:3389
+```
+
+Eventos observados em `eve.json`:
+
+```text
+event_type: rdp
+proto:      TCP
+```
+
+Isso confirmou que a interface passiva conseguia observar e interpretar tráfego east-west.
+
+---
+
+# Suricata Custom Rules
+
+Arquivo:
+
+```text
+suricata/rules/local.rules
+```
+
+Configuração validada:
+
+```text
+alert tcp 192.168.100.20 any -> 192.168.100.30 3389 (msg:"SOC LAB: RDP connection attempt detected"; flags:S; flow:to_server,stateless; sid:1000001; rev:1;)
+
+alert tcp 192.168.100.20 any -> 192.168.100.30 any (msg:"SOC LAB: Possible TCP port scan detected"; flags:S; flow:stateless; threshold:type threshold,track by_src,count 10,seconds 10; sid:1000002; rev:2;)
+```
+
+---
+
+## SID 1000001 - RDP Connection Attempt
+
+```text
+SID:       1000001
+Revision:  1
+Protocol:  TCP
+Target:    192.168.100.30:3389
+```
+
+Assinatura:
+
+```text
+SOC LAB: RDP connection attempt detected
+```
+
+Exemplo validado:
+
+```text
+Source:      192.168.100.20
+Destination: 192.168.100.30:3389
+Action:      allowed
+```
+
+`allowed` é esperado porque o Suricata está operando como IDS passivo, não como IPS inline.
+
+---
+
+## Suricata → Wazuh Integration
+
+O Suricata grava telemetria estruturada em:
+
+```text
+/var/log/suricata/eve.json
+```
+
+O Wazuh coleta o arquivo como JSON:
+
+```xml
+<localfile>
+  <log_format>json</log_format>
+  <location>/var/log/suricata/eve.json</location>
+</localfile>
+```
+
+O Wazuh 4.14.7 possui suporte nativo para eventos Suricata.
+
+Arquivo de regras:
+
+```text
+/var/ossec/ruleset/rules/0475-suricata_rules.xml
+```
+
+Regra nativa utilizada:
+
+```text
+86601
+Suricata: Alert - $(alert.signature)
+```
+
+---
+
+## Rule 100180 - Suricata RDP Detection
+
+```text
+Rule:  100180
+Level: 6
+Parent: 86601
+```
+
+Condição:
+
+```text
+alert.signature_id = 1000001
+```
+
+Descrição:
+
+```text
+SOC LAB: Suricata detected an RDP connection attempt from WIN10 to WINSERVER2022.
+```
+
+MITRE ATT&CK:
+
+```text
+T1021.001 - Remote Desktop Protocol
+Tactic: Lateral Movement
+```
+
+Pipeline validado:
+
+```text
+WIN10
+192.168.100.20
+       |
+       | TCP SYN / 3389
+       v
+WINSERVER2022
+192.168.100.30
+       |
+       v
+enp0s9
+       |
+       v
+Suricata
+SID 1000001
+       |
+       v
+eve.json
+       |
+       v
+Wazuh 86601
+       |
+       v
+Wazuh 100180
+```
+
+Evidência:
+
+```text
+cases/case-100180-suricata-rdp.txt
+```
+
+---
+
+# TCP Port Scan Detection
+
+## SID 1000002
+
+Assinatura:
+
+```text
+SOC LAB: Possible TCP port scan detected
+```
+
+Threshold:
+
+```text
+10 TCP SYN attempts
+within 10 seconds
+tracked by source IP
+```
+
+Configuração:
+
+```text
+SID:      1000002
+Revision: 2
+```
+
+Fluxo controlado:
+
+```text
+192.168.100.20
+       |
+       | TCP SYN -> multiple ports
+       v
+192.168.100.30
+```
+
+---
+
+## Detection Tuning
+
+A primeira implementação utilizou:
+
+```text
+detection_filter
+```
+
+Após o limite ser atingido, pacotes adicionais continuavam gerando alertas, aumentando o volume de eventos.
+
+A regra foi alterada para:
+
+```text
+threshold:type threshold,track by_src,count 10,seconds 10
+```
+
+Com 21 tentativas, o comportamento validado foi aproximadamente:
+
+```text
+Tentativas 1-10   -> alert
+Tentativas 11-20  -> alert
+Tentativa 21      -> no additional group completed
+```
+
+Isso reduziu ruído e melhorou o controle de alertas enviados ao SIEM.
+
+---
+
+## Rule 100185 - TCP Port Scan
+
+```text
+Rule:  100185
+Level: 8
+Parent: 86601
+```
+
+Condição:
+
+```text
+alert.signature_id = 1000002
+```
+
+Descrição:
+
+```text
+SOC LAB: Suricata detected a possible TCP port scan against WINSERVER2022.
+```
+
+MITRE ATT&CK:
+
+```text
+T1046 - Network Service Discovery
+Tactic: Discovery
+```
+
+Alertas validados:
+
+```text
+192.168.100.20 -> 192.168.100.30:29
+192.168.100.20 -> 192.168.100.30:39
+```
+
+Pipeline:
+
+```text
+Multiple TCP SYN attempts
+        |
+        v
+enp0s9
+        |
+        v
+Suricata SID 1000002
+        |
+        v
+eve.json
+        |
+        v
+Wazuh 86601
+        |
+        v
+Wazuh 100185
+```
+
+Evidência:
+
+```text
+cases/case-100185-suricata-port-scan.txt
+```
+
 Documentação detalhada:
 
 ```text
-docs/windows-authentication-monitoring.md
+docs/suricata-network-monitoring.md
 ```
+
+---
+
+# Custom Detection Rules
+
+## Wazuh Rules
+
+| Rule | Level | Detection | MITRE |
+|---|---:|---|---|
+| 100100 | 10 | PowerShell Script Block marker | T1059.001 |
+| 100110 | 8 | PowerShell spawning cmd.exe | T1059.003 |
+| 100120 | 10 | whoami discovery | T1033, T1059.003 |
+| 100130 | 12 | Multi-command discovery | T1033, T1016, T1087.001, T1059.003 |
+| 100135 | 6 | Wrong password for existing account | Authentication |
+| 100140 | 12 | Password guessing | T1110.001 |
+| 100145 | 4 | Successful network logon | T1078 |
+| 100150 | 14 | Successful logon after password guessing | Valid Accounts |
+| 100155 | 13 | Account lockout after password guessing | T1110.001, T1531 |
+| 100160 | 5 | RDP connection received | T1021.001 |
+| 100165 | 7 | Failed authentication associated with RDP | T1021.001, T1110.001 |
+| 100170 | 12 | Repeated RDP authentication failures | T1021.001, T1110.001 |
+| 100175 | 14 | Successful RDP logon after password guessing | T1021.001, T1078.003 |
+| 100180 | 6 | Suricata RDP connection detection | T1021.001 |
+| 100185 | 8 | Suricata TCP port scan detection | T1046 |
+
+Arquivo:
+
+```text
+wazuh/rules/local_rules.xml
+```
+
+---
+
+# Detection Correlation Overview
+
+O laboratório atualmente possui correlação em múltiplas camadas.
+
+## Endpoint Discovery
+
+```text
+Process Creation
+      |
+      v
+PowerShell / cmd.exe
+      |
+      v
+Discovery commands
+      |
+      v
+100130
+```
+
+## Authentication
+
+```text
+Failed authentication
+      |
+      v
+Password Guessing
+100140
+      |
+      +---------------------+
+      |                     |
+      v                     v
+Successful Logon       Account Lockout
+100150                 100155
+```
+
+## RDP Authentication
+
+```text
+RDP connection
+100160
+      |
+      v
+Failed Authentication
+100165
+      |
+      v
+Repeated Failures
+100170
+      |
+      v
+Successful RDP Logon
+100175
+```
+
+## Network Detection
+
+```text
+Network Traffic
+      |
+      v
+Suricata
+      |
+      v
+eve.json
+      |
+      v
+Wazuh 86601
+      |
+      +---------------------+
+      |                     |
+      v                     v
+100180                  100185
+RDP                     Port Scan
+```
+
+---
+
+# SOC Interpretation
+
+As regras customizadas não existem apenas para aumentar o número de alertas.
+
+O objetivo é transformar eventos técnicos isolados em contexto operacional.
+
+Exemplo:
+
+```text
+Five failed logons
+```
+
+isoladamente podem representar:
+
+- erro do usuário;
+- credencial antiga;
+- serviço configurado incorretamente;
+- tentativa de ataque.
+
+Entretanto:
+
+```text
+Repeated failed logons
+same user
+same source IP
+        |
+        v
+Successful logon
+```
+
+é um comportamento mais relevante e merece maior prioridade.
+
+O mesmo princípio é aplicado ao RDP:
+
+```text
+Event 4625 Type 3
+```
+
+sozinho não prova que a tentativa ocorreu via RDP.
+
+A correlação com:
+
+```text
+TerminalServices Event 261
+```
+
+aumenta a confiança da detecção.
+
+---
+
+# SOC Triage
+
+Durante uma investigação, os principais campos analisados incluem:
+
+```text
+timestamp
+rule.id
+rule.level
+rule.description
+agent.name
+src_ip
+src_port
+dest_ip
+dest_port
+targetUserName
+logonType
+authenticationPackageName
+processGuid
+parentProcessGuid
+processName
+commandLine
+alert.signature_id
+alert.signature
+MITRE technique
+```
+
+Fluxo de triagem utilizado:
+
+```text
+Alert
+  |
+  v
+Validate source
+  |
+  v
+Validate destination
+  |
+  v
+Identify user / process
+  |
+  v
+Review preceding events
+  |
+  v
+Review subsequent events
+  |
+  v
+Correlate endpoint + authentication + network
+  |
+  v
+Classify
+```
+
+Classificações utilizadas nos testes controlados:
+
+```text
+True Positive
+Authorized Security Test
+```
+
+---
+
+# MITRE ATT&CK Coverage
+
+Técnicas atualmente representadas no laboratório:
+
+| Technique | Description | Detection |
+|---|---|---|
+| T1059.001 | PowerShell | 100100 |
+| T1059.003 | Windows Command Shell | 100110, 100120, 100130 |
+| T1033 | System Owner/User Discovery | 100120, 100130 |
+| T1016 | System Network Configuration Discovery | 100130 |
+| T1087.001 | Local Account Discovery | 100130 |
+| T1110.001 | Password Guessing | 100140, 100155, 100165, 100170 |
+| T1531 | Account Access Removal | 100155 |
+| T1078 | Valid Accounts | 100145 |
+| T1078.003 | Local Accounts | 100175 |
+| T1021.001 | Remote Desktop Protocol | 100160, 100165, 100170, 100175, 100180 |
+| T1046 | Network Service Discovery | 100185 |
+
+---
+
+# Project Structure
+
+```text
+soc-blue-team-homelab/
+|
++-- README.md
+|
++-- cases/
+|   +-- case-100130-discovery.txt
+|   +-- case-100140-password-guessing.txt
+|   +-- case-100150-success-after-password-guessing.txt
+|   +-- case-100155-account-lockout-after-password-guessing.txt
+|   +-- case-100175-rdp-success-after-password-guessing.txt
+|   +-- case-100180-suricata-rdp.txt
+|   +-- case-100185-suricata-port-scan.txt
+|
++-- docs/
+|   +-- process-tree-investigation.md
+|   +-- windows-authentication-monitoring.md
+|   +-- suricata-network-monitoring.md
+|
++-- scripts/
+|   +-- process-tree.sh
+|
++-- suricata/
+|   +-- rules/
+|       +-- local.rules
+|
++-- wazuh/
+    +-- rules/
+        +-- local_rules.xml
+```
+
+---
+
+# Current Detection Flow
+
+O laboratório atualmente reúne três fontes principais de visibilidade:
+
+```text
+Endpoint Telemetry
+Sysmon
+PowerShell
+      |
+      |
+      +------------------+
+                         |
+Windows Authentication  |
+4624 / 4625 / 4740      |
+RDP Events              |
+      |                  |
+      +------------------+
+                         |
+Network Telemetry       |
+Suricata / EVE JSON     |
+      |                  |
+      +------------------+
+                         |
+                         v
+                       Wazuh
+                         |
+                         v
+              Custom Detection Rules
+                         |
+                         v
+                  Correlated Alerts
+                         |
+                         v
+                   SOC Investigation
+```
+
+---
+
+# Troubleshooting Realizado
+
+Alguns problemas resolvidos durante a construção do laboratório:
+
+## Wazuh Agent
+
+Foi necessário validar:
+
+```text
+agent registration
+manager connectivity
+Windows service
+event channel collection
+```
+
+## Sysmon
+
+Foi ajustada a configuração para equilibrar:
+
+```text
+visibility
+vs.
+event volume
+```
+
+## RDP
+
+Foi identificado que:
+
+```text
+Windows 10 Home
+```
+
+não funciona como servidor RDP nativo.
+
+O Windows Server 2022 foi utilizado como alvo RDP.
+
+Também foi identificado que falhas RDP com NLA podem aparecer como:
+
+```text
+4625 Logon Type 3
+```
+
+e, portanto, precisam de contexto adicional antes de serem classificadas como RDP.
+
+## Wazuh Logtest
+
+Durante troubleshooting do Event 261, foi observado que reproduzir um `full_log` via `wazuh-logtest` pode não representar exatamente o pipeline real de um evento Windows EventChannel.
+
+A validação final foi realizada em produção no próprio laboratório.
+
+## VirtualBox Network Visibility
+
+Inicialmente, a interface de gerenciamento `enp0s8` não recebia tráfego unicast entre as outras VMs.
+
+Foi criada uma terceira interface:
+
+```text
+enp0s9
+```
+
+com:
+
+```text
+Host-Only Network
+Promiscuous Mode: Allow All
+```
+
+Após o ajuste, o sensor passou a observar tráfego bidirecional entre:
+
+```text
+192.168.100.20
+and
+192.168.100.30
+```
+
+## Suricata Rule Tuning
+
+A regra de port scan inicialmente gerava alertas excessivos após o threshold.
+
+A mudança de:
+
+```text
+detection_filter
+```
+
+para:
+
+```text
+threshold:type threshold
+```
+
+reduziu alertas repetitivos.
+
+---
+
+# Status
+
+## Endpoint Visibility
+
+```text
+Wazuh Agent                   VALIDATED
+Sysmon                        VALIDATED
+Process Creation              VALIDATED
+Network Connect               VALIDATED
+DNS Query                     VALIDATED
+PowerShell 4104               VALIDATED
+```
+
+## Authentication Visibility
+
+```text
+4625 Failed Logon             VALIDATED
+4624 Successful Logon         VALIDATED
+4740 Account Lockout          VALIDATED
+Password Guessing             VALIDATED
+Success After Guessing        VALIDATED
+Lockout After Guessing        VALIDATED
+```
+
+## RDP Visibility
+
+```text
+RDP Listener Event 261        VALIDATED
+Failed RDP correlation        VALIDATED
+Repeated RDP failures         VALIDATED
+Successful RDP Logon          VALIDATED
+Success After RDP Guessing    VALIDATED
+```
+
+## Network Visibility
+
+```text
+Passive packet capture        VALIDATED
+Promiscuous visibility        VALIDATED
+Suricata AF_PACKET            VALIDATED
+RDP protocol detection        VALIDATED
+EVE JSON                      VALIDATED
+Wazuh Suricata ingestion      VALIDATED
+Suricata RDP alert            VALIDATED
+TCP port scan alert           VALIDATED
+```
+
+---
+
+# Current Detection Layers
+
+```text
+Windows Endpoint Telemetry
+          +
+Sysmon
+          +
+PowerShell Monitoring
+          +
+Windows Authentication
+          +
+RDP Authentication Correlation
+          +
+Suricata Network Telemetry
+          |
+          v
+        Wazuh
+          |
+          v
+Detection Engineering
+          |
+          v
+SOC Investigation
+```
+
+---
+
+# Next Steps
+
+Próximas evoluções planejadas para o laboratório:
+
+1. expandir as detecções de rede do Suricata;
+2. analisar e documentar regras ET Open relevantes;
+3. adicionar Zeek para network security monitoring e metadata;
+4. correlacionar telemetria Suricata + Zeek + endpoint;
+5. criar novos cenários de reconnaissance e lateral movement;
+6. evoluir dashboards e hunting queries no Wazuh;
+7. adicionar mais automação para investigação;
+8. continuar documentando cada cenário com evidência técnica reproduzível.
+
+---
+
+# Disclaimer
+
+Este projeto existe exclusivamente para:
+
+- estudo;
+- treinamento defensivo;
+- análise de logs;
+- Detection Engineering;
+- Threat Hunting;
+- DFIR;
+- Cybersecurity.
+
+Os testes foram executados em um laboratório isolado e autorizado.
+
+Nenhum dos procedimentos descritos deve ser utilizado contra sistemas, contas ou redes sem autorização explícita.

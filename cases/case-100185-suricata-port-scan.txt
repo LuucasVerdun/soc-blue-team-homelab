@@ -1,0 +1,13 @@
+SOC BLUE TEAM HOMELAB
+CASE: Suricata TCP Port Scan Detection
+
+Detection chain:
+WIN10 -> Suricata -> eve.json -> Wazuh 86601 -> Wazuh 100185
+
+MITRE ATT&CK: T1046 - Network Service Discovery
+
+Suricata threshold: 10 TCP SYN attempts within 10 seconds by source
+
+=== WAZUH ALERTS ===
+{"timestamp":"2026-08-28T04:57:59.260+0000","rule_id":"100185","level":8,"description":"SOC LAB: Suricata detected a possible TCP port scan against WINSERVER2022.","src_ip":"192.168.100.20","src_port":"50006","dest_ip":"192.168.100.30","dest_port":"29","suricata_signature_id":"1000002","suricata_signature":"SOC LAB: Possible TCP port scan detected","mitre":{"id":["T1046"],"tactic":["Discovery"],"technique":["Network Service Discovery"]}}
+{"timestamp":"2026-08-28T04:58:01.262+0000","rule_id":"100185","level":8,"description":"SOC LAB: Suricata detected a possible TCP port scan against WINSERVER2022.","src_ip":"192.168.100.20","src_port":"50016","dest_ip":"192.168.100.30","dest_port":"39","suricata_signature_id":"1000002","suricata_signature":"SOC LAB: Possible TCP port scan detected","mitre":{"id":["T1046"],"tactic":["Discovery"],"technique":["Network Service Discovery"]}}

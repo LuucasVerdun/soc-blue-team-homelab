@@ -1,0 +1,3 @@
+alert tcp 192.168.100.20 any -> 192.168.100.30 3389 (msg:"SOC LAB: RDP connection attempt detected"; flags:S; flow:to_server,stateless; sid:1000001; rev:1;)
+alert tcp 192.168.100.20 any -> 192.168.100.30 any (msg:"SOC LAB: Possible TCP port scan detected"; flags:S; flow:stateless; threshold:type threshold,track by_src,count 10,seconds 10; sid:1000002; rev:2;)
+
