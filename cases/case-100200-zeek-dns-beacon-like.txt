@@ -1,0 +1,39 @@
+SOC BLUE TEAM HOMELAB
+CASE: Zeek DNS Beacon-Like Activity
+
+Rule ID: 100200
+Level: 10
+
+Parent detection:
+Rule 100195
+
+Correlation:
+Frequency: 4
+Timeframe: 15 seconds
+Same source IP
+Same DNS query
+
+Controlled query:
+soc-lab-beacon.example
+
+Validated alert:
+Timestamp: 2026-08-29T05:37:40.241+0000
+Source: 192.168.100.20
+Destination: 192.168.100.30
+Query: soc-lab-beacon.example
+QType: AAAA
+
+MITRE ATT&CK:
+T1071.004 - DNS
+Tactic: Command and Control
+
+Detection chain:
+Repeated DNS queries -> Zeek dns.log -> Wazuh 100195 -> frequency correlation -> Wazuh 100200
+
+Classification:
+True Positive
+Authorized Security Test
+
+Analyst note:
+The rule detects beacon-like behavior in a controlled scenario. It does not independently confirm malicious Command and Control.
+

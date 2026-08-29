@@ -2,7 +2,7 @@
 
 Laboratório prático de Security Operations Center (SOC) focado em Blue Team, monitoramento, detecção, correlação e investigação de eventos de segurança.
 
-O ambiente foi construído para reproduzir fluxos reais de um SOC: coleta de telemetria de endpoint, autenticação Windows, análise de processos, correlação de eventos, monitoramento de RDP e detecção de rede com Suricata integrado ao Wazuh.
+O ambiente foi construído para reproduzir fluxos reais de um SOC: coleta de telemetria de endpoint, autenticação Windows, análise de processos, correlação de eventos, monitoramento de RDP e visibilidade de rede com Suricata e Zeek integrados ao Wazuh.
 
 > Todos os testes descritos neste repositório foram executados em ambiente de laboratório controlado e autorizado.
 
@@ -50,9 +50,13 @@ Este projeto tem como objetivos:
                        enp0s9
                   Passive Sensor NIC
                          |
-                      Suricata
-                         |
-                      eve.json
+                 +-------+-------+
+                 |               |
+              Suricata          Zeek
+                 |               |
+              eve.json     conn.log / dns.log
+                 |               |
+                 +-------+-------+
                          |
                        Wazuh
                          |
@@ -113,6 +117,7 @@ Principais componentes:
 - Wazuh Indexer
 - Wazuh Dashboard
 - Suricata 7.0.3
+- Zeek 8.2.2
 - jq
 - ferramentas Linux de análise e troubleshooting
 
@@ -1343,6 +1348,399 @@ docs/suricata-network-monitoring.md
 
 ---
 
+
+# Zeek Network Monitoring
+
+A fase Zeek adicionou Network Security Monitoring orientado a metadata ao laboratório, complementando as assinaturas e alertas do Suricata.
+
+## Arquitetura Zeek
+
+O Zeek utiliza a mesma interface passiva dedicada:
+
+```text
+enp0s9
+```
+
+Configuração:
+
+```text
+type=standalone
+host=localhost
+interface=enp0s9
+```
+
+Rede local:
+
+```text
+192.168.100.0/24    SOC-LAB
+```
+
+A interface permanece sem endereço IP e não é utilizada para gerenciamento.
+
+## JSON Logging
+
+Os logs do Zeek foram convertidos para JSON utilizando:
+
+```text
+@load policy/tuning/json-logs
+```
+
+Principais logs utilizados nesta fase:
+
+```text
+conn.log
+dns.log
+notice.log
+capture_loss.log
+```
+
+Isso permitiu ingestão direta pelo decoder JSON do Wazuh.
+
+## Capture Validation
+
+A captura do sensor foi validada com:
+
+```text
+41650 packets received
+0 packets dropped
+0.00% capture loss
+```
+
+Também foram observados:
+
+```text
+TCP/3389 -> service ssl
+UDP/3389 -> service rdpeudp
+```
+
+entre:
+
+```text
+WIN10          192.168.100.20
+WINSERVER2022  192.168.100.30
+```
+
+## Zeek Service Persistence
+
+Após um reboot, `zeekctl status` mostrou o estado `crashed`.
+
+A investigação confirmou:
+
+```text
+received termination signal
+TERMINATED [atexit]
+```
+
+sem:
+
+```text
+OOM
+segmentation fault
+core dump
+```
+
+O journal mostrou que o sistema inteiro havia sido desligado no mesmo momento.
+
+Conclusão:
+
+```text
+Zeek was terminated by system shutdown.
+It was not an internal Zeek crash.
+```
+
+Foi criado um serviço systemd para executar o Zeek automaticamente após boot.
+
+Estado final:
+
+```text
+zeek standalone localhost running
+```
+
+Suricata e os componentes Wazuh permaneceram ativos em paralelo.
+
+## Zeek → Wazuh
+
+O ruleset do Wazuh possui regras Zeek voltadas ao formato OwlH, utilizando campos como:
+
+```text
+bro_engine
+```
+
+Para este laboratório foi escolhida ingestão direta dos logs JSON nativos do Zeek.
+
+Arquivos coletados:
+
+```text
+/opt/zeek/logs/current/conn.log
+/opt/zeek/logs/current/dns.log
+```
+
+Campos Zeek:
+
+```text
+id.orig_h
+id.orig_p
+id.resp_h
+id.resp_p
+```
+
+são representados pelo Wazuh como:
+
+```text
+data.id.orig_h
+data.id.orig_p
+data.id.resp_h
+data.id.resp_p
+```
+
+---
+
+## Rule 100190 - Zeek RDP Connection Metadata
+
+```text
+Rule:  100190
+Level: 5
+```
+
+Objetivo:
+
+Detectar metadata de conexão TCP do WIN10 para o Windows Server na porta 3389.
+
+Evento validado:
+
+```text
+Source:           192.168.100.20:50044
+Destination:      192.168.100.30:3389
+Protocol:         TCP
+Duration:         120.073743
+Connection State: RSTO
+```
+
+MITRE ATT&CK:
+
+```text
+T1021.001 - Remote Desktop Protocol
+Tactic: Lateral Movement
+```
+
+Pipeline:
+
+```text
+WIN10
+  |
+  v
+enp0s9
+  |
+  v
+Zeek
+  |
+  v
+conn.log JSON
+  |
+  v
+Wazuh
+  |
+  v
+100190
+```
+
+A regra representa visibilidade de conexão na porta RDP e, isoladamente, não comprova autenticação RDP bem-sucedida.
+
+Evidência:
+
+```text
+cases/case-100190-zeek-rdp-connection.txt
+```
+
+---
+
+## Rule 100195 - Controlled Suspicious DNS Query
+
+Foi utilizado o indicador controlado:
+
+```text
+soc-lab-beacon.example
+```
+
+Fluxo de teste:
+
+```text
+192.168.100.20
+       |
+       | UDP/53
+       v
+192.168.100.30
+```
+
+O Zeek registrou consultas:
+
+```text
+A
+AAAA
+```
+
+Regra:
+
+```text
+Rule:  100195
+Level: 7
+```
+
+MITRE ATT&CK:
+
+```text
+T1071.004 - DNS
+Tactic: Command and Control
+```
+
+Pipeline:
+
+```text
+WIN10
+  |
+  v
+DNS Query
+  |
+  v
+Zeek dns.log
+  |
+  v
+Wazuh
+  |
+  v
+100195
+```
+
+Essa regra utiliza um indicador criado especificamente para o laboratório. Uma consulta DNS isolada não comprova atividade de Command and Control.
+
+Evidência:
+
+```text
+cases/case-100195-zeek-dns-query.txt
+```
+
+---
+
+## Rule 100200 - DNS Beacon-Like Activity
+
+A regra `100200` correlaciona múltiplas ocorrências da `100195`.
+
+Configuração:
+
+```text
+Rule:      100200
+Level:     10
+Frequency: 4
+Timeframe: 15 seconds
+```
+
+Correlação:
+
+```text
+same source IP
++
+same DNS query
+```
+
+Alerta validado:
+
+```text
+2026-08-29T05:37:40.241+0000
+
+Source:
+192.168.100.20
+
+Destination:
+192.168.100.30
+
+Query:
+soc-lab-beacon.example
+
+QType:
+AAAA
+```
+
+MITRE ATT&CK:
+
+```text
+T1071.004 - DNS
+Tactic: Command and Control
+```
+
+Pipeline:
+
+```text
+Repeated DNS Queries
+        |
+        v
+Zeek dns.log
+        |
+        v
+100195
+        |
+        | 4 events / 15 seconds
+        | same source
+        | same query
+        v
+100200
+Beacon-Like DNS Activity
+```
+
+A `100200` identifica um padrão compatível com beaconing no cenário controlado, não uma confirmação independente de C2 malicioso.
+
+Evidência:
+
+```text
+cases/case-100200-zeek-dns-beacon-like.txt
+```
+
+Documentação detalhada:
+
+```text
+docs/zeek-network-monitoring.md
+```
+
+---
+
+## Suricata + Zeek
+
+As duas ferramentas exercem funções complementares:
+
+```text
+Suricata
+    |
+    +--> signature / IDS detection
+    +--> custom network alerts
+    +--> eve.json
+
+Zeek
+    |
+    +--> connection metadata
+    +--> DNS metadata
+    +--> protocol visibility
+    +--> behavioral context
+```
+
+Arquitetura resultante:
+
+```text
+                   enp0s9
+                      |
+           +----------+----------+
+           |                     |
+           v                     v
+       Suricata                Zeek
+           |                     |
+       eve.json          conn.log / dns.log
+           |                     |
+           +----------+----------+
+                      |
+                      v
+                    Wazuh
+```
+
+---
+
 # Custom Detection Rules
 
 ## Wazuh Rules
@@ -1364,6 +1762,9 @@ docs/suricata-network-monitoring.md
 | 100175 | 14 | Successful RDP logon after password guessing | T1021.001, T1078.003 |
 | 100180 | 6 | Suricata RDP connection detection | T1021.001 |
 | 100185 | 8 | Suricata TCP port scan detection | T1046 |
+| 100190 | 5 | Zeek RDP connection metadata | T1021.001 |
+| 100195 | 7 | Zeek controlled suspicious DNS query | T1071.004 |
+| 100200 | 10 | Zeek DNS beacon-like correlation | T1071.004 |
 
 Arquivo:
 
@@ -1432,20 +1833,28 @@ Successful RDP Logon
 ```text
 Network Traffic
       |
-      v
-Suricata
-      |
-      v
-eve.json
-      |
-      v
-Wazuh 86601
-      |
-      +---------------------+
-      |                     |
-      v                     v
-100180                  100185
-RDP                     Port Scan
+      +--------------------+
+      |                    |
+      v                    v
+Suricata                 Zeek
+      |                    |
+      v                    v
+eve.json            conn.log / dns.log
+      |                    |
+      +---------+----------+
+                |
+                v
+              Wazuh
+                |
+      +---------+--------------------+
+      |         |          |         |
+      v         v          v         v
+   100180     100185     100190    100195
+   RDP IDS    Port Scan  RDP Meta  DNS Query
+                                      |
+                                      v
+                                    100200
+                              DNS Beacon-Like
 ```
 
 ---
@@ -1577,8 +1986,9 @@ Técnicas atualmente representadas no laboratório:
 | T1531 | Account Access Removal | 100155 |
 | T1078 | Valid Accounts | 100145 |
 | T1078.003 | Local Accounts | 100175 |
-| T1021.001 | Remote Desktop Protocol | 100160, 100165, 100170, 100175, 100180 |
+| T1021.001 | Remote Desktop Protocol | 100160, 100165, 100170, 100175, 100180, 100190 |
 | T1046 | Network Service Discovery | 100185 |
+| T1071.004 | DNS | 100195, 100200 |
 
 ---
 
@@ -1597,11 +2007,15 @@ soc-blue-team-homelab/
 |   +-- case-100175-rdp-success-after-password-guessing.txt
 |   +-- case-100180-suricata-rdp.txt
 |   +-- case-100185-suricata-port-scan.txt
+|   +-- case-100190-zeek-rdp-connection.txt
+|   +-- case-100195-zeek-dns-query.txt
+|   +-- case-100200-zeek-dns-beacon-like.txt
 |
 +-- docs/
 |   +-- process-tree-investigation.md
 |   +-- windows-authentication-monitoring.md
 |   +-- suricata-network-monitoring.md
+|   +-- zeek-network-monitoring.md
 |
 +-- scripts/
 |   +-- process-tree.sh
@@ -1609,6 +2023,12 @@ soc-blue-team-homelab/
 +-- suricata/
 |   +-- rules/
 |       +-- local.rules
+|
++-- zeek/
+|   +-- config/
+|       +-- node.cfg
+|       +-- networks.cfg
+|       +-- local.zeek
 |
 +-- wazuh/
     +-- rules/
@@ -1619,38 +2039,40 @@ soc-blue-team-homelab/
 
 # Current Detection Flow
 
-O laboratório atualmente reúne três fontes principais de visibilidade:
+O laboratório atualmente combina telemetria de endpoint, autenticação e duas fontes complementares de monitoramento de rede:
 
 ```text
 Endpoint Telemetry
-Sysmon
-PowerShell
-      |
-      |
-      +------------------+
-                         |
-Windows Authentication  |
-4624 / 4625 / 4740      |
-RDP Events              |
-      |                  |
-      +------------------+
-                         |
-Network Telemetry       |
-Suricata / EVE JSON     |
-      |                  |
-      +------------------+
-                         |
-                         v
-                       Wazuh
-                         |
-                         v
-              Custom Detection Rules
-                         |
-                         v
-                  Correlated Alerts
-                         |
-                         v
-                   SOC Investigation
+Sysmon / PowerShell
+        |
+        +-------------------+
+                            |
+Windows Authentication     |
+4624 / 4625 / 4740 / RDP   |
+        |                   |
+        +-------------------+
+                            |
+Suricata                    |
+IDS / EVE JSON              |
+        |                   |
+        +-------------------+
+                            |
+Zeek                        |
+conn.log / dns.log          |
+        |                   |
+        +-------------------+
+                            |
+                            v
+                          Wazuh
+                            |
+                            v
+                 Custom Detection Rules
+                            |
+                            v
+                     Correlated Alerts
+                            |
+                            v
+                      SOC Investigation
 ```
 
 ---
@@ -1751,6 +2173,51 @@ reduziu alertas repetitivos.
 
 ---
 
+
+## Zeek Shutdown Investigation
+
+Após um reboot, o Zeek apareceu como:
+
+```text
+crashed
+```
+
+O diagnóstico mostrou:
+
+```text
+received termination signal
+TERMINATED [atexit]
+```
+
+Não houve evidência de:
+
+```text
+OOM
+segfault
+core dump
+```
+
+O journal confirmou desligamento completo do sistema no mesmo timestamp, incluindo SSH, Suricata e todos os componentes Wazuh.
+
+Foi criado um serviço systemd para garantir inicialização automática do Zeek após boot.
+
+## Zeek WebSocket Warning
+
+O ZeekControl apresentou aviso relacionado ao módulo Python `websockets`.
+
+Esse aviso afeta comandos auxiliares do ZeekControl, mas não impediu:
+
+```text
+packet capture
+conn.log
+dns.log
+JSON logging
+Wazuh ingestion
+custom detections
+```
+
+---
+
 # Status
 
 ## Endpoint Visibility
@@ -1791,11 +2258,19 @@ Success After RDP Guessing    VALIDATED
 Passive packet capture        VALIDATED
 Promiscuous visibility        VALIDATED
 Suricata AF_PACKET            VALIDATED
-RDP protocol detection        VALIDATED
-EVE JSON                      VALIDATED
+Suricata EVE JSON             VALIDATED
 Wazuh Suricata ingestion      VALIDATED
 Suricata RDP alert            VALIDATED
 TCP port scan alert           VALIDATED
+Zeek standalone               VALIDATED
+Zeek JSON logging             VALIDATED
+Zeek capture loss 0.00%       VALIDATED
+Zeek conn.log                 VALIDATED
+Zeek dns.log                  VALIDATED
+Zeek RDP metadata             VALIDATED
+Wazuh Zeek ingestion          VALIDATED
+Zeek DNS query alert          VALIDATED
+DNS beacon-like correlation   VALIDATED
 ```
 
 ---
@@ -1813,7 +2288,9 @@ Windows Authentication
           +
 RDP Authentication Correlation
           +
-Suricata Network Telemetry
+Suricata IDS Telemetry
+          +
+Zeek Network Metadata
           |
           v
         Wazuh
@@ -1831,12 +2308,12 @@ SOC Investigation
 
 Próximas evoluções planejadas para o laboratório:
 
-1. expandir as detecções de rede do Suricata;
-2. analisar e documentar regras ET Open relevantes;
-3. adicionar Zeek para network security monitoring e metadata;
-4. correlacionar telemetria Suricata + Zeek + endpoint;
-5. criar novos cenários de reconnaissance e lateral movement;
-6. evoluir dashboards e hunting queries no Wazuh;
+1. correlacionar telemetria Suricata + Zeek + endpoint em cenários únicos;
+2. expandir detecções de DNS, reconnaissance e lateral movement;
+3. analisar e documentar regras ET Open relevantes;
+4. criar hunting queries usando metadata Zeek;
+5. evoluir dashboards e visualizações no Wazuh;
+6. adicionar novos protocolos e cenários de rede;
 7. adicionar mais automação para investigação;
 8. continuar documentando cada cenário com evidência técnica reproduzível.
 

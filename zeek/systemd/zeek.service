@@ -1,0 +1,14 @@
+[Unit]
+Description=Zeek Network Security Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/zeek/bin/zeekctl deploy
+ExecStop=/opt/zeek/bin/zeekctl stop
+ExecReload=/opt/zeek/bin/zeekctl deploy
+
+[Install]
+WantedBy=multi-user.target

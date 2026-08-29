@@ -1,0 +1,35 @@
+SOC BLUE TEAM HOMELAB
+CASE: Zeek Controlled Suspicious DNS Query
+
+Rule ID: 100195
+Level: 7
+
+Controlled query:
+soc-lab-beacon.example
+
+Source:
+192.168.100.20
+
+Destination:
+192.168.100.30:53/UDP
+
+Validated alerts:
+2026-08-29T05:33:50.125+0000 - A
+2026-08-29T05:33:52.127+0000 - AAAA
+2026-08-29T05:33:54.127+0000 - A
+2026-08-29T05:33:56.128+0000 - AAAA
+
+MITRE ATT&CK:
+T1071.004 - DNS
+Tactic: Command and Control
+
+Detection chain:
+WIN10 -> DNS/53 -> enp0s9 -> Zeek -> dns.log JSON -> Wazuh -> Rule 100195
+
+Classification:
+True Positive
+Authorized Security Test
+
+Analyst note:
+The domain is a controlled lab indicator. A DNS query by itself does not prove Command and Control activity.
+

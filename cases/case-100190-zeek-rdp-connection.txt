@@ -1,0 +1,31 @@
+SOC BLUE TEAM HOMELAB
+CASE: Zeek RDP Connection Metadata
+
+Rule ID: 100190
+Level: 5
+
+Objective:
+Validate Zeek connection metadata ingestion into Wazuh for TCP/3389 traffic between WIN10 and WINSERVER2022.
+
+Validated alert:
+Timestamp: 2026-08-29T05:18:50.994+0000
+Source: 192.168.100.20:50044
+Destination: 192.168.100.30:3389
+Protocol: tcp
+Duration: 120.073743
+Connection State: RSTO
+
+MITRE ATT&CK:
+T1021.001 - Remote Desktop Protocol
+Tactic: Lateral Movement
+
+Detection chain:
+WIN10 -> enp0s9 -> Zeek -> conn.log JSON -> Wazuh -> Rule 100190
+
+Classification:
+True Positive
+Authorized Security Test
+
+Analyst note:
+This rule validates network connection metadata for TCP/3389. It does not independently prove successful RDP authentication.
+
