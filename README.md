@@ -1,10 +1,10 @@
 # SOC Blue Team Home Lab
 
-Laboratório prático de Security Operations Center (SOC) focado em Blue Team, monitoramento, detecção, correlação e investigação de eventos de segurança.
+Laboratório prático de **Security Operations Center (SOC)** focado em Blue Team, monitoramento, detecção, correlação e investigação de eventos de segurança.
 
-O ambiente foi construído para reproduzir fluxos reais de um SOC: coleta de telemetria de endpoint, autenticação Windows, análise de processos, correlação de eventos, monitoramento de RDP e visibilidade de rede com Suricata e Zeek integrados ao Wazuh.
+O ambiente foi construído para reproduzir fluxos reais de um SOC: coleta de telemetria de endpoint, autenticação Windows, análise de processos, correlação temporal, monitoramento de RDP, Network IDS com Suricata, Network Security Monitoring com Zeek e correlação multi-source no Wazuh.
 
-> Todos os testes descritos neste repositório foram executados em ambiente de laboratório controlado e autorizado.
+> Todos os testes descritos neste repositório foram executados em ambiente de laboratório próprio, controlado e autorizado.
 
 ---
 
@@ -13,57 +13,64 @@ O ambiente foi construído para reproduzir fluxos reais de um SOC: coleta de tel
 Este projeto tem como objetivos:
 
 - desenvolver experiência prática em operações de SOC;
-- compreender a geração, coleta e análise de logs;
-- criar e ajustar regras de detecção;
+- compreender geração, coleta, normalização e análise de logs;
+- trabalhar com telemetria de endpoint e de rede;
+- criar, testar e ajustar regras de detecção;
 - correlacionar múltiplos eventos para identificar comportamento suspeito;
-- trabalhar com telemetria de endpoint e rede;
+- diferenciar eventos isolados de sequências com maior confiança analítica;
 - mapear detecções para MITRE ATT&CK;
 - praticar triagem, investigação e documentação de alertas;
 - reduzir falsos positivos e alert fatigue por meio de tuning;
-- construir evidências técnicas reproduzíveis.
+- construir evidências técnicas reproduzíveis;
+- evoluir de alertas individuais para investigação multi-source.
 
 ---
 
-## Arquitetura do Laboratório
+# Arquitetura do Laboratório
 
 ```text
-                         WINDOWS 11 HOST
-                               |
-                        VirtualBox 7.x
-                               |
-          +--------------------+--------------------+
-          |                    |                    |
-          |                    |                    |
-      SOC01                WIN10              WINSERVER2022
-   Ubuntu Server        Windows 10          Windows Server 2022
-  192.168.100.10      192.168.100.20        192.168.100.30
-          |                    |                    |
-          |                    +---------+----------+
-          |                              |
-          |                     Host-Only Network
-          |                              |
-          |                         east-west
-          |                           traffic
-          |                              |
-          +------------------------------+
-                         |
-                       enp0s9
-                  Passive Sensor NIC
-                         |
-                 +-------+-------+
-                 |               |
-              Suricata          Zeek
-                 |               |
-              eve.json     conn.log / dns.log
-                 |               |
-                 +-------+-------+
-                         |
-                       Wazuh
-                         |
-              Detection / Correlation
+                            WINDOWS 11 HOST
+                                  |
+                           VirtualBox 7.x
+                                  |
+             +--------------------+--------------------+
+             |                    |                    |
+             |                    |                    |
+         SOC01                WIN10              WINSERVER2022
+      Ubuntu Server        Windows 10          Windows Server 2022
+     192.168.100.10      192.168.100.20        192.168.100.30
+             |                    |                    |
+             |                    +---------+----------+
+             |                              |
+             |                     Host-Only Network
+             |                              |
+             |                         east-west
+             |                           traffic
+             |                              |
+             +------------------------------+
+                            |
+                          enp0s9
+                     Passive Sensor NIC
+                            |
+                    +-------+-------+
+                    |               |
+                 Suricata          Zeek
+                    |               |
+                 eve.json     conn.log / dns.log
+                    |               |
+                    +-------+-------+
+                            |
+                          Wazuh
+                            |
+                 Detection / Correlation
+                            |
+                            v
+                      SOC Investigation
 ```
 
-### Redes utilizadas
+---
+
+## Redes utilizadas
 
 ```text
 NAT
@@ -73,15 +80,15 @@ Host-Only
 192.168.100.0/24
 ```
 
-A rede NAT fornece conectividade externa para as VMs quando necessário.
+A rede NAT fornece conectividade externa às VMs quando necessário.
 
-A rede Host-Only é usada para comunicação e simulações internas entre os sistemas do laboratório.
+A rede Host-Only é utilizada para comunicação, monitoramento e simulações internas entre os sistemas do laboratório.
 
 ---
 
-## Ambiente
+# Ambiente
 
-### Host
+## Host
 
 ```text
 Operating System: Windows 11
@@ -90,7 +97,9 @@ RAM:              24 GB
 CPU:              Intel Core i5 13th Gen
 ```
 
-### SOC01
+---
+
+## SOC01
 
 ```text
 Operating System: Ubuntu Server 24.04.4 LTS
@@ -118,13 +127,23 @@ Principais componentes:
 - Wazuh Dashboard
 - Suricata 7.0.3
 - Zeek 8.2.2
+- Bash
 - jq
+- systemd
 - ferramentas Linux de análise e troubleshooting
 
-### Windows 10 Endpoint
+Dashboard:
 
 ```text
-Hostname: WIN10
+https://192.168.100.10
+```
+
+---
+
+## Windows 10 Endpoint
+
+```text
+Hostname:  WIN10
 Host-Only: 192.168.100.20
 NAT:       10.0.2.3
 ```
@@ -132,16 +151,27 @@ NAT:       10.0.2.3
 Componentes:
 
 - Wazuh Agent
-- Sysmon 15.21
+- Sysmon
 - PowerShell logging
 - Windows Security Event Log
 
-### Windows Server 2022
+Função no laboratório:
+
+- geração controlada de telemetria;
+- execução de comandos de discovery;
+- origem dos testes de autenticação;
+- origem dos testes RDP;
+- origem dos testes de rede e DNS.
+
+---
+
+## Windows Server 2022
 
 ```text
-Hostname: WINSERVER2022
+Hostname:  WINSERVER2022
 Host-Only: 192.168.100.30
 RDP:       TCP/3389
+Wazuh Agent ID: 002
 ```
 
 Uso no laboratório:
@@ -152,22 +182,29 @@ Uso no laboratório:
 - password guessing;
 - account lockout;
 - successful RDP logon;
-- alvo de monitoramento de rede.
+- alvo de reconhecimento de rede;
+- correlação de eventos de endpoint e rede.
 
 ---
 
-## Componentes
+# Componentes
 
 | Componente | Função |
 |---|---|
 | Wazuh | SIEM/XDR, análise, correlação e alertas |
-| Sysmon | Telemetria detalhada de endpoint Windows |
-| Windows Event Logs | Autenticação, segurança e PowerShell |
+| Wazuh Agent | Coleta de eventos nos endpoints Windows |
+| Sysmon | Telemetria detalhada de endpoint |
+| PowerShell Logging | Visibilidade de Script Block e execução |
+| Windows Event Logs | Autenticação, segurança e RDP |
 | Suricata | Network IDS e inspeção de tráfego |
-| EVE JSON | Telemetria estruturada gerada pelo Suricata |
+| EVE JSON | Telemetria estruturada do Suricata |
+| Zeek | Network Security Monitoring e metadata |
+| conn.log | Metadata de conexões observadas pelo Zeek |
+| dns.log | Metadata de DNS observada pelo Zeek |
 | MITRE ATT&CK | Classificação das técnicas observadas |
 | VirtualBox | Virtualização e segmentação do laboratório |
-| Bash / jq | Consulta, filtragem e investigação de alertas |
+| Bash / jq | Consulta, filtragem e investigação |
+| Git / GitHub | Versionamento e documentação |
 
 ---
 
@@ -183,18 +220,22 @@ Canal monitorado:
 Microsoft-Windows-Sysmon/Operational
 ```
 
-A configuração utilizada prioriza eventos úteis para investigação de SOC, incluindo:
+A configuração prioriza eventos úteis para investigação em SOC, incluindo:
 
-- Process Create;
-- Network Connect;
-- File Create;
-- DNS Query.
+```text
+Process Create
+Network Connect
+File Create
+DNS Query
+```
 
-Eventos de Registry Event foram reduzidos para evitar excesso de ruído durante esta fase do laboratório.
+Eventos de Registry Event foram reduzidos durante a fase inicial para controlar volume e ruído.
 
-### Process Creation
+---
 
-A telemetria de criação de processos permite analisar:
+## Process Creation
+
+A telemetria de criação de processos permite investigar:
 
 ```text
 Parent process
@@ -209,7 +250,7 @@ Command line
 User / Integrity Level
 ```
 
-Essa visibilidade foi usada para detectar cadeias envolvendo PowerShell, `cmd.exe` e comandos de discovery.
+Essa visibilidade foi utilizada para detectar cadeias envolvendo PowerShell, `cmd.exe` e comandos de discovery.
 
 ---
 
@@ -224,7 +265,9 @@ Event ID 4104
 Microsoft-Windows-PowerShell/Operational
 ```
 
-Foi criado um marcador controlado para validar a ingestão do evento.
+Foi utilizado um marcador controlado para validar a ingestão.
+
+---
 
 ## Rule 100100
 
@@ -308,7 +351,7 @@ T1087.001 - Local Account Discovery
 T1059.003 - Windows Command Shell
 ```
 
-Classificação do teste:
+Classificação:
 
 ```text
 True Positive
@@ -325,7 +368,7 @@ cases/case-100130-discovery.txt
 
 # Process Tree Investigation Utility
 
-Foi criada uma ferramenta Bash para investigação de árvores de processo em alertas Wazuh.
+Foi criada uma ferramenta Bash para investigação de árvores de processos em alertas Wazuh.
 
 Arquivo:
 
@@ -420,7 +463,7 @@ Timeframe: 240 seconds
 MITRE:     T1110
 ```
 
-Utilizada para detectar múltiplas falhas de autenticação Windows.
+Utilizada para identificar múltiplas falhas de autenticação Windows.
 
 ---
 
@@ -438,13 +481,13 @@ de:
 usuário existente + senha incorreta
 ```
 
-A regra `100135` utiliza:
+A Rule `100135` utiliza:
 
 ```text
 SubStatus 0xC000006A
 ```
 
-Configuração lógica:
+Lógica:
 
 ```text
 Parent: 60122
@@ -533,10 +576,6 @@ Level:   4
 Parent:  60106
 ```
 
-Objetivo:
-
-Identificar autenticação de rede bem-sucedida.
-
 MITRE:
 
 ```text
@@ -602,7 +641,7 @@ cases/case-100150-success-after-password-guessing.txt
 
 ## Event ID 4740
 
-O Windows foi configurado para bloquear a conta após repetidas falhas de autenticação.
+O Windows foi configurado para bloquear uma conta após repetidas falhas de autenticação.
 
 Política utilizada durante os testes:
 
@@ -612,7 +651,7 @@ Lockout duration:          10 minutes
 Observation window:        10 minutes
 ```
 
-O Event ID 4740 representa:
+O Event ID `4740` representa:
 
 ```text
 A user account was locked out
@@ -622,7 +661,7 @@ A user account was locked out
 
 ## Rule 60115
 
-Regra nativa do Wazuh observada para account lockout:
+Regra nativa observada:
 
 ```text
 Rule: 60115
@@ -834,7 +873,7 @@ same target username
 same source IP
 ```
 
-Configuração validada:
+Configuração:
 
 ```text
 Rule:      100170
@@ -861,7 +900,7 @@ Event ID:   4624
 Logon Type: 10
 ```
 
-A regra nativa Wazuh identificada foi:
+Regra nativa Wazuh identificada:
 
 ```text
 92653
@@ -871,7 +910,7 @@ A regra nativa Wazuh identificada foi:
 
 ## Rule 100175 - Successful RDP Logon After Password Guessing
 
-Correlação final:
+Correlação:
 
 ```text
 Repeated RDP failures
@@ -908,27 +947,7 @@ T1021.001 - Remote Desktop Protocol
 T1078.003 - Local Accounts
 ```
 
-### Validação
-
-Usuário controlado:
-
-```text
-SOC-RDP-TEST
-```
-
-Origem:
-
-```text
-192.168.100.20
-```
-
-Alvo:
-
-```text
-192.168.100.30
-```
-
-Alertas finais:
+Validação:
 
 ```text
 2026-08-27T05:49:28.245+0000
@@ -936,11 +955,7 @@ Rule: 100170
 Level: 12
 User: SOC-RDP-TEST
 Source IP: 192.168.100.20
-```
 
-seguido por:
-
-```text
 2026-08-27T05:49:34.744+0000
 Rule: 100175
 Level: 14
@@ -974,6 +989,8 @@ cases/case-100175-rdp-success-after-password-guessing.txt
 
 A fase seguinte adicionou uma camada de Network Detection and Response ao laboratório por meio do Suricata.
 
+---
+
 ## Passive Sensor Architecture
 
 O SOC01 possui uma terceira interface:
@@ -993,7 +1010,7 @@ Promiscuous:     Allow All
 
 A interface não é utilizada para gerenciamento.
 
-Gerenciamento permanece em:
+Gerenciamento:
 
 ```text
 enp0s8
@@ -1035,7 +1052,7 @@ Interface:
 enp0s9
 ```
 
-Ruleset carregado:
+Ruleset:
 
 ```text
 ET Open / suricata.rules
@@ -1043,32 +1060,24 @@ ET Open / suricata.rules
 local.rules
 ```
 
-O engine foi validado com:
-
-```text
-2 rule files processed
-0 rules failed
-Engine started
-```
-
 ---
 
 ## RDP Protocol Visibility
 
-O Suricata identificou tráfego RDP real entre os endpoints:
+O Suricata identificou tráfego RDP entre:
 
 ```text
 192.168.100.20 -> 192.168.100.30:3389
 ```
 
-Eventos observados em `eve.json`:
+Eventos observados:
 
 ```text
 event_type: rdp
 proto:      TCP
 ```
 
-Isso confirmou que a interface passiva conseguia observar e interpretar tráfego east-west.
+Isso confirmou que a interface passiva consegue observar e interpretar tráfego east-west.
 
 ---
 
@@ -1080,7 +1089,7 @@ Arquivo:
 suricata/rules/local.rules
 ```
 
-Configuração validada:
+Regras:
 
 ```text
 alert tcp 192.168.100.20 any -> 192.168.100.30 3389 (msg:"SOC LAB: RDP connection attempt detected"; flags:S; flow:to_server,stateless; sid:1000001; rev:1;)
@@ -1105,15 +1114,7 @@ Assinatura:
 SOC LAB: RDP connection attempt detected
 ```
 
-Exemplo validado:
-
-```text
-Source:      192.168.100.20
-Destination: 192.168.100.30:3389
-Action:      allowed
-```
-
-`allowed` é esperado porque o Suricata está operando como IDS passivo, não como IPS inline.
+`allowed` é esperado porque o Suricata opera como IDS passivo, não como IPS inline.
 
 ---
 
@@ -1132,14 +1133,6 @@ O Wazuh coleta o arquivo como JSON:
   <log_format>json</log_format>
   <location>/var/log/suricata/eve.json</location>
 </localfile>
-```
-
-O Wazuh 4.14.7 possui suporte nativo para eventos Suricata.
-
-Arquivo de regras:
-
-```text
-/var/ossec/ruleset/rules/0475-suricata_rules.xml
 ```
 
 Regra nativa utilizada:
@@ -1165,20 +1158,13 @@ Condição:
 alert.signature_id = 1000001
 ```
 
-Descrição:
-
-```text
-SOC LAB: Suricata detected an RDP connection attempt from WIN10 to WINSERVER2022.
-```
-
 MITRE ATT&CK:
 
 ```text
 T1021.001 - Remote Desktop Protocol
-Tactic: Lateral Movement
 ```
 
-Pipeline validado:
+Pipeline:
 
 ```text
 WIN10
@@ -1239,7 +1225,7 @@ SID:      1000002
 Revision: 2
 ```
 
-Fluxo controlado:
+Fluxo:
 
 ```text
 192.168.100.20
@@ -1259,7 +1245,7 @@ A primeira implementação utilizou:
 detection_filter
 ```
 
-Após o limite ser atingido, pacotes adicionais continuavam gerando alertas, aumentando o volume de eventos.
+Após o limite ser atingido, pacotes adicionais continuavam gerando alertas.
 
 A regra foi alterada para:
 
@@ -1267,15 +1253,14 @@ A regra foi alterada para:
 threshold:type threshold,track by_src,count 10,seconds 10
 ```
 
-Com 21 tentativas, o comportamento validado foi aproximadamente:
+Com 21 tentativas, o comportamento validado gerou alertas agrupados aproximadamente nos ports:
 
 ```text
-Tentativas 1-10   -> alert
-Tentativas 11-20  -> alert
-Tentativa 21      -> no additional group completed
+29
+39
 ```
 
-Isso reduziu ruído e melhorou o controle de alertas enviados ao SIEM.
+Isso reduziu ruído e melhorou o controle de eventos enviados ao SIEM.
 
 ---
 
@@ -1303,35 +1288,6 @@ MITRE ATT&CK:
 
 ```text
 T1046 - Network Service Discovery
-Tactic: Discovery
-```
-
-Alertas validados:
-
-```text
-192.168.100.20 -> 192.168.100.30:29
-192.168.100.20 -> 192.168.100.30:39
-```
-
-Pipeline:
-
-```text
-Multiple TCP SYN attempts
-        |
-        v
-enp0s9
-        |
-        v
-Suricata SID 1000002
-        |
-        v
-eve.json
-        |
-        v
-Wazuh 86601
-        |
-        v
-Wazuh 100185
 ```
 
 Evidência:
@@ -1340,7 +1296,7 @@ Evidência:
 cases/case-100185-suricata-port-scan.txt
 ```
 
-Documentação detalhada:
+Documentação:
 
 ```text
 docs/suricata-network-monitoring.md
@@ -1348,10 +1304,11 @@ docs/suricata-network-monitoring.md
 
 ---
 
-
 # Zeek Network Monitoring
 
-A fase Zeek adicionou Network Security Monitoring orientado a metadata ao laboratório, complementando as assinaturas e alertas do Suricata.
+A fase Zeek adicionou Network Security Monitoring orientado a metadata, complementando as assinaturas e alertas do Suricata.
+
+---
 
 ## Arquitetura Zeek
 
@@ -1377,6 +1334,8 @@ Rede local:
 
 A interface permanece sem endereço IP e não é utilizada para gerenciamento.
 
+---
+
 ## JSON Logging
 
 Os logs do Zeek foram convertidos para JSON utilizando:
@@ -1385,7 +1344,7 @@ Os logs do Zeek foram convertidos para JSON utilizando:
 @load policy/tuning/json-logs
 ```
 
-Principais logs utilizados nesta fase:
+Principais logs utilizados:
 
 ```text
 conn.log
@@ -1394,11 +1353,11 @@ notice.log
 capture_loss.log
 ```
 
-Isso permitiu ingestão direta pelo decoder JSON do Wazuh.
+---
 
 ## Capture Validation
 
-A captura do sensor foi validada com:
+A captura foi validada com:
 
 ```text
 41650 packets received
@@ -1420,18 +1379,24 @@ WIN10          192.168.100.20
 WINSERVER2022  192.168.100.30
 ```
 
+---
+
 ## Zeek Service Persistence
 
-Após um reboot, `zeekctl status` mostrou o estado `crashed`.
+Após um reboot, `zeekctl status` mostrou inicialmente:
 
-A investigação confirmou:
+```text
+crashed
+```
+
+A investigação encontrou:
 
 ```text
 received termination signal
 TERMINATED [atexit]
 ```
 
-sem:
+sem evidência de:
 
 ```text
 OOM
@@ -1448,25 +1413,44 @@ Zeek was terminated by system shutdown.
 It was not an internal Zeek crash.
 ```
 
-Foi criado um serviço systemd para executar o Zeek automaticamente após boot.
+Foi criado um serviço systemd para iniciar o Zeek automaticamente.
 
-Estado final:
+Arquivo versionado:
+
+```text
+zeek/systemd/zeek.service
+```
+
+Estado operacional validado:
 
 ```text
 zeek standalone localhost running
 ```
 
-Suricata e os componentes Wazuh permaneceram ativos em paralelo.
+---
 
-## Zeek → Wazuh
+## Zeek WebSocket Warning
 
-O ruleset do Wazuh possui regras Zeek voltadas ao formato OwlH, utilizando campos como:
+O `zeekctl` pode apresentar:
 
 ```text
-bro_engine
+UseWebSocket is set, but websockets non-functional
 ```
 
-Para este laboratório foi escolhida ingestão direta dos logs JSON nativos do Zeek.
+No estado atual do laboratório, isso afeta comandos auxiliares como:
+
+```text
+print
+netstats
+```
+
+A captura, geração de logs e integração com o Wazuh continuam funcionais.
+
+---
+
+# Zeek → Wazuh Integration
+
+Foi escolhida ingestão direta dos logs JSON nativos do Zeek.
 
 Arquivos coletados:
 
@@ -1484,7 +1468,7 @@ id.resp_h
 id.resp_p
 ```
 
-são representados pelo Wazuh como:
+são representados no evento Wazuh como:
 
 ```text
 data.id.orig_h
@@ -1520,7 +1504,6 @@ MITRE ATT&CK:
 
 ```text
 T1021.001 - Remote Desktop Protocol
-Tactic: Lateral Movement
 ```
 
 Pipeline:
@@ -1544,7 +1527,9 @@ Wazuh
 100190
 ```
 
-A regra representa visibilidade de conexão na porta RDP e, isoladamente, não comprova autenticação RDP bem-sucedida.
+A Rule `100190` representa visibilidade de conexão TCP/3389.
+
+Ela **não comprova**, isoladamente, autenticação RDP bem-sucedida.
 
 Evidência:
 
@@ -1556,13 +1541,13 @@ cases/case-100190-zeek-rdp-connection.txt
 
 ## Rule 100195 - Controlled Suspicious DNS Query
 
-Foi utilizado o indicador controlado:
+Indicador controlado:
 
 ```text
 soc-lab-beacon.example
 ```
 
-Fluxo de teste:
+Fluxo:
 
 ```text
 192.168.100.20
@@ -1590,7 +1575,6 @@ MITRE ATT&CK:
 
 ```text
 T1071.004 - DNS
-Tactic: Command and Control
 ```
 
 Pipeline:
@@ -1611,7 +1595,7 @@ Wazuh
 100195
 ```
 
-Essa regra utiliza um indicador criado especificamente para o laboratório. Uma consulta DNS isolada não comprova atividade de Command and Control.
+Uma consulta DNS isolada não comprova atividade de Command and Control.
 
 Evidência:
 
@@ -1623,7 +1607,7 @@ cases/case-100195-zeek-dns-query.txt
 
 ## Rule 100200 - DNS Beacon-Like Activity
 
-A regra `100200` correlaciona múltiplas ocorrências da `100195`.
+A Rule `100200` correlaciona múltiplas ocorrências da `100195`.
 
 Configuração:
 
@@ -1664,7 +1648,6 @@ MITRE ATT&CK:
 
 ```text
 T1071.004 - DNS
-Tactic: Command and Control
 ```
 
 Pipeline:
@@ -1686,7 +1669,7 @@ Zeek dns.log
 Beacon-Like DNS Activity
 ```
 
-A `100200` identifica um padrão compatível com beaconing no cenário controlado, não uma confirmação independente de C2 malicioso.
+A `100200` identifica um padrão **compatível com beaconing no cenário controlado**, não uma confirmação independente de C2 malicioso.
 
 Evidência:
 
@@ -1694,7 +1677,7 @@ Evidência:
 cases/case-100200-zeek-dns-beacon-like.txt
 ```
 
-Documentação detalhada:
+Documentação:
 
 ```text
 docs/zeek-network-monitoring.md
@@ -1702,14 +1685,14 @@ docs/zeek-network-monitoring.md
 
 ---
 
-## Suricata + Zeek
+# Suricata + Zeek
 
-As duas ferramentas exercem funções complementares:
+As duas ferramentas exercem funções complementares.
 
 ```text
 Suricata
     |
-    +--> signature / IDS detection
+    +--> signatures / IDS detection
     +--> custom network alerts
     +--> eve.json
 
@@ -1721,7 +1704,7 @@ Zeek
     +--> behavioral context
 ```
 
-Arquitetura resultante:
+Arquitetura:
 
 ```text
                    enp0s9
@@ -1741,9 +1724,319 @@ Arquitetura resultante:
 
 ---
 
+# Multi-Source Correlation
+
+Após validar Suricata e Zeek isoladamente, o laboratório evoluiu para correlação entre fontes diferentes.
+
+O objetivo passou a ser:
+
+```text
+Network reconnaissance
++
+Network session metadata
++
+Windows authentication telemetry
+        |
+        v
+Higher-confidence incident
+```
+
+---
+
+## Rule 100205 - Suricata + Windows Correlation
+
+A primeira correlação multi-source liga reconhecimento de rede a uma autenticação RDP bem-sucedida após password guessing.
+
+Lógica:
+
+```text
+Suricata 100185
+Port Scan
+       |
+       v
+Windows 100170
+Repeated RDP failures
+       |
+       v
+Windows 4624 Type 10
+Successful RDP logon
+       |
+       v
+100205
+```
+
+Configuração principal:
+
+```xml
+<rule id="100205" level="15" timeframe="600">
+  <if_sid>100175</if_sid>
+  <if_matched_sid>100185</if_matched_sid>
+  <global_frequency />
+
+  <field name="win.eventdata.ipAddress">^192\.168\.100\.20$</field>
+
+  <description>SOC LAB: Network reconnaissance followed by successful RDP access after password guessing.</description>
+
+  <group>correlation,multi_source,suricata,windows,rdp,reconnaissance,lateral_movement,soc_lab,</group>
+
+  <mitre>
+    <id>T1046</id>
+    <id>T1021.001</id>
+    <id>T1078.003</id>
+  </mitre>
+</rule>
+```
+
+A opção:
+
+```text
+global_frequency
+```
+
+foi necessária porque os eventos envolvidos são processados por agentes diferentes:
+
+```text
+100185
+Suricata
+Agent 000
+soc01
+
+100175
+Windows
+Agent 002
+WINSERVER2022
+```
+
+Validação:
+
+```text
+Rule:  100205
+Level: 15
+User:  Administrator
+Source: 192.168.100.20
+```
+
+Descrição validada:
+
+```text
+SOC LAB: Network reconnaissance followed by successful RDP access after password guessing.
+```
+
+---
+
+# Tri-Source RDP Correlation
+
+A etapa seguinte adicionou o Zeek à cadeia anterior.
+
+Objetivo:
+
+```text
+Suricata
++
+Zeek
++
+Windows Security Events
+        |
+        v
+Wazuh tri-source correlation
+```
+
+---
+
+## Rule 100210 - Tri-Source Correlation
+
+Lógica:
+
+```text
+Suricata 100185
+Network reconnaissance
+        |
+        v
+Zeek 100190
+TCP/3389 metadata
+        |
+        v
+Windows 100170
+Repeated RDP authentication failures
+        |
+        v
+Successful RDP logon
+        |
+        v
+100205
+Suricata + Windows correlation
+        |
+        v
+100210
+TRI-SOURCE CORRELATION
+LEVEL 15
+```
+
+Regra:
+
+```xml
+<rule id="100210" level="15" timeframe="300">
+  <if_sid>100205</if_sid>
+  <if_matched_sid>100190</if_matched_sid>
+
+  <global_frequency />
+
+  <field name="win.eventdata.ipAddress">^192\.168\.100\.20$</field>
+
+  <description>SOC LAB: Tri-source correlation - Suricata reconnaissance, Zeek RDP network activity, and successful Windows RDP access after password guessing.</description>
+
+  <group>correlation,multi_source,suricata,zeek,windows,rdp,reconnaissance,credential_access,lateral_movement,soc_lab,</group>
+
+  <mitre>
+    <id>T1046</id>
+    <id>T1110.001</id>
+    <id>T1021.001</id>
+    <id>T1078.003</id>
+  </mitre>
+</rule>
+```
+
+---
+
+## Final Validated Timeline
+
+Teste final:
+
+```text
+Date: 2026-09-01
+```
+
+| Timestamp UTC | Rule | Source | Observation |
+|---|---:|---|---|
+| 02:51:57 | 100185 | Suricata | TCP port scan from 192.168.100.20 to 192.168.100.30 |
+| 02:51:59 | 100185 | Suricata | Additional thresholded scan alert |
+| 02:52:45 | 100190 | Zeek | TCP connection to 192.168.100.30:3389 |
+| 02:52:48 | 100190 | Zeek | Additional RDP network metadata |
+| 02:52:51 | 100170 | Windows/Wazuh | Repeated RDP authentication failures |
+| 02:52:52 | 100190 | Zeek | Additional TCP/3389 metadata |
+| 02:52:57 | 100190 | Zeek | Additional TCP/3389 metadata |
+| 02:53:11 | 100190 | Zeek | Additional TCP/3389 metadata |
+| 02:53:17 | 100210 | Wazuh | Tri-source correlated incident |
+
+Resultado final:
+
+```text
+Rule:      100210
+Level:     15
+Agent:     WINSERVER2022
+User:      Administrator
+Source IP: 192.168.100.20
+```
+
+Descrição:
+
+```text
+SOC LAB: Tri-source correlation - Suricata reconnaissance, Zeek RDP network activity, and successful Windows RDP access after password guessing.
+```
+
+---
+
+## Detection Engineering Interpretation
+
+Cada fonte responde a uma pergunta diferente.
+
+### Suricata
+
+```text
+Houve reconhecimento de rede antes da atividade RDP?
+```
+
+### Zeek
+
+```text
+O sensor de rede observou conexões TCP para o serviço RDP?
+```
+
+### Windows Security Events
+
+```text
+Houve falhas de autenticação?
+Qual conta foi afetada?
+Houve autenticação RDP bem-sucedida depois?
+Qual foi o IP de origem?
+```
+
+### Wazuh
+
+```text
+Esses eventos fazem parte da mesma sequência temporal?
+```
+
+A combinação aumenta a confiança da investigação.
+
+É importante distinguir os níveis de evidência:
+
+```text
+Port scan
+!= compromise
+
+TCP/3389 connection
+!= successful RDP authentication
+
+Repeated failed authentication
+= password guessing pattern
+
+4624 Logon Type 10
+= endpoint-side evidence of successful RDP logon
+
+All signals correlated
+= higher-confidence incident
+```
+
+---
+
+## Why Rule 100205 May Not Appear Separately
+
+Na execução tri-source final, a Rule `100210` foi emitida como alerta final.
+
+Cadeia:
+
+```text
+100175
+  |
+  v
+100205
+  |
+  v
+100210
+```
+
+O evento atual pode satisfazer a lógica intermediária da `100205` e, em seguida, corresponder à regra filha mais específica `100210`.
+
+Portanto, a ausência de uma linha separada da `100205` no teste final não significa falha da correlação intermediária.
+
+---
+
+## Evidência Tri-Source
+
+Arquivo:
+
+```text
+cases/case-100210-tri-source-rdp-correlation.txt
+```
+
+O arquivo contém nove registros JSON da janela final de teste.
+
+Documentação detalhada:
+
+```text
+docs/tri-source-rdp-correlation.md
+```
+
+---
+
 # Custom Detection Rules
 
-## Wazuh Rules
+Arquivo:
+
+```text
+wazuh/rules/local_rules.xml
+```
 
 | Rule | Level | Detection | MITRE |
 |---|---:|---|---|
@@ -1754,7 +2047,7 @@ Arquitetura resultante:
 | 100135 | 6 | Wrong password for existing account | Authentication |
 | 100140 | 12 | Password guessing | T1110.001 |
 | 100145 | 4 | Successful network logon | T1078 |
-| 100150 | 14 | Successful logon after password guessing | Valid Accounts |
+| 100150 | 14 | Successful logon after password guessing | T1078 |
 | 100155 | 13 | Account lockout after password guessing | T1110.001, T1531 |
 | 100160 | 5 | RDP connection received | T1021.001 |
 | 100165 | 7 | Failed authentication associated with RDP | T1021.001, T1110.001 |
@@ -1765,105 +2058,16 @@ Arquitetura resultante:
 | 100190 | 5 | Zeek RDP connection metadata | T1021.001 |
 | 100195 | 7 | Zeek controlled suspicious DNS query | T1071.004 |
 | 100200 | 10 | Zeek DNS beacon-like correlation | T1071.004 |
-
-Arquivo:
-
-```text
-wazuh/rules/local_rules.xml
-```
+| 100205 | 15 | Reconnaissance followed by successful RDP after guessing | T1046, T1021.001, T1078.003 |
+| 100210 | 15 | Tri-source Suricata + Zeek + Windows correlation | T1046, T1110.001, T1021.001, T1078.003 |
 
 ---
 
-# Detection Correlation Overview
+# Detection Philosophy
 
-O laboratório atualmente possui correlação em múltiplas camadas.
+O objetivo do laboratório não é apenas criar alertas.
 
-## Endpoint Discovery
-
-```text
-Process Creation
-      |
-      v
-PowerShell / cmd.exe
-      |
-      v
-Discovery commands
-      |
-      v
-100130
-```
-
-## Authentication
-
-```text
-Failed authentication
-      |
-      v
-Password Guessing
-100140
-      |
-      +---------------------+
-      |                     |
-      v                     v
-Successful Logon       Account Lockout
-100150                 100155
-```
-
-## RDP Authentication
-
-```text
-RDP connection
-100160
-      |
-      v
-Failed Authentication
-100165
-      |
-      v
-Repeated Failures
-100170
-      |
-      v
-Successful RDP Logon
-100175
-```
-
-## Network Detection
-
-```text
-Network Traffic
-      |
-      +--------------------+
-      |                    |
-      v                    v
-Suricata                 Zeek
-      |                    |
-      v                    v
-eve.json            conn.log / dns.log
-      |                    |
-      +---------+----------+
-                |
-                v
-              Wazuh
-                |
-      +---------+--------------------+
-      |         |          |         |
-      v         v          v         v
-   100180     100185     100190    100195
-   RDP IDS    Port Scan  RDP Meta  DNS Query
-                                      |
-                                      v
-                                    100200
-                              DNS Beacon-Like
-```
-
----
-
-# SOC Interpretation
-
-As regras customizadas não existem apenas para aumentar o número de alertas.
-
-O objetivo é transformar eventos técnicos isolados em contexto operacional.
+A meta é transformar eventos técnicos isolados em contexto operacional.
 
 Exemplo:
 
@@ -1873,39 +2077,39 @@ Five failed logons
 
 isoladamente podem representar:
 
-- erro do usuário;
-- credencial antiga;
+- erro de usuário;
+- senha desatualizada;
 - serviço configurado incorretamente;
 - tentativa de ataque.
 
-Entretanto:
+Por outro lado:
 
 ```text
-Repeated failed logons
-same user
-same source IP
+Network reconnaissance
         |
         v
-Successful logon
+Repeated RDP authentication failures
+        |
+        v
+Successful RDP authentication
 ```
 
-é um comportamento mais relevante e merece maior prioridade.
+possui maior relevância analítica.
 
-O mesmo princípio é aplicado ao RDP:
+Com uma fonte adicional:
 
 ```text
-Event 4625 Type 3
+Suricata reconnaissance
+        +
+Zeek RDP metadata
+        +
+Windows authentication events
+        |
+        v
+Tri-source correlated alert
 ```
 
-sozinho não prova que a tentativa ocorreu via RDP.
-
-A correlação com:
-
-```text
-TerminalServices Event 261
-```
-
-aumenta a confiança da detecção.
+a investigação ganha confiança e contexto.
 
 ---
 
@@ -1918,6 +2122,7 @@ timestamp
 rule.id
 rule.level
 rule.description
+agent.id
 agent.name
 src_ip
 src_port
@@ -1932,10 +2137,15 @@ processName
 commandLine
 alert.signature_id
 alert.signature
+id.orig_h
+id.orig_p
+id.resp_h
+id.resp_p
+query
 MITRE technique
 ```
 
-Fluxo de triagem utilizado:
+Fluxo de triagem:
 
 ```text
 Alert
@@ -1959,10 +2169,13 @@ Review subsequent events
 Correlate endpoint + authentication + network
   |
   v
+Assess confidence
+  |
+  v
 Classify
 ```
 
-Classificações utilizadas nos testes controlados:
+Classificações utilizadas:
 
 ```text
 True Positive
@@ -1973,8 +2186,6 @@ Authorized Security Test
 
 # MITRE ATT&CK Coverage
 
-Técnicas atualmente representadas no laboratório:
-
 | Technique | Description | Detection |
 |---|---|---|
 | T1059.001 | PowerShell | 100100 |
@@ -1982,12 +2193,13 @@ Técnicas atualmente representadas no laboratório:
 | T1033 | System Owner/User Discovery | 100120, 100130 |
 | T1016 | System Network Configuration Discovery | 100130 |
 | T1087.001 | Local Account Discovery | 100130 |
-| T1110.001 | Password Guessing | 100140, 100155, 100165, 100170 |
+| T1110 | Brute Force | 60204, 60115 |
+| T1110.001 | Password Guessing | 100140, 100155, 100165, 100170, 100210 |
 | T1531 | Account Access Removal | 100155 |
-| T1078 | Valid Accounts | 100145 |
-| T1078.003 | Local Accounts | 100175 |
-| T1021.001 | Remote Desktop Protocol | 100160, 100165, 100170, 100175, 100180, 100190 |
-| T1046 | Network Service Discovery | 100185 |
+| T1078 | Valid Accounts | 100145, 100150 |
+| T1078.003 | Local Accounts | 100175, 100205, 100210 |
+| T1021.001 | Remote Desktop Protocol | 100160, 100165, 100170, 100175, 100180, 100190, 100205, 100210 |
+| T1046 | Network Service Discovery | 100185, 100205, 100210 |
 | T1071.004 | DNS | 100195, 100200 |
 
 ---
@@ -2010,12 +2222,16 @@ soc-blue-team-homelab/
 |   +-- case-100190-zeek-rdp-connection.txt
 |   +-- case-100195-zeek-dns-query.txt
 |   +-- case-100200-zeek-dns-beacon-like.txt
+|   +-- case-100210-tri-source-rdp-correlation.txt
 |
 +-- docs/
 |   +-- process-tree-investigation.md
 |   +-- windows-authentication-monitoring.md
 |   +-- suricata-network-monitoring.md
 |   +-- zeek-network-monitoring.md
+|   +-- tri-source-rdp-correlation.md
+|
++-- evidence/
 |
 +-- scripts/
 |   +-- process-tree.sh
@@ -2026,9 +2242,12 @@ soc-blue-team-homelab/
 |
 +-- zeek/
 |   +-- config/
-|       +-- node.cfg
-|       +-- networks.cfg
-|       +-- local.zeek
+|   |   +-- node.cfg
+|   |   +-- networks.cfg
+|   |   +-- local.zeek
+|   |
+|   +-- systemd/
+|       +-- zeek.service
 |
 +-- wazuh/
     +-- rules/
@@ -2039,51 +2258,60 @@ soc-blue-team-homelab/
 
 # Current Detection Flow
 
-O laboratório atualmente combina telemetria de endpoint, autenticação e duas fontes complementares de monitoramento de rede:
-
 ```text
 Endpoint Telemetry
 Sysmon / PowerShell
         |
-        +-------------------+
-                            |
-Windows Authentication     |
-4624 / 4625 / 4740 / RDP   |
-        |                   |
-        +-------------------+
-                            |
-Suricata                    |
-IDS / EVE JSON              |
-        |                   |
-        +-------------------+
-                            |
-Zeek                        |
-conn.log / dns.log          |
-        |                   |
-        +-------------------+
-                            |
-                            v
-                          Wazuh
-                            |
-                            v
-                 Custom Detection Rules
-                            |
-                            v
-                     Correlated Alerts
-                            |
-                            v
-                      SOC Investigation
+        +----------------------+
+                               |
+Windows Authentication        |
+4624 / 4625 / 4740 / RDP      |
+        |                      |
+        +----------------------+
+                               |
+Suricata                      |
+IDS / EVE JSON                |
+        |                      |
+        +----------------------+
+                               |
+Zeek                           |
+conn.log / dns.log             |
+        |                      |
+        +----------------------+
+                               |
+                               v
+                             Wazuh
+                               |
+                               v
+                    Custom Detection Rules
+                               |
+                  +------------+-------------+
+                  |                          |
+                  v                          v
+           Single-source              Multi-source
+             alerts                   correlations
+                                             |
+                                             v
+                                       Rule 100205
+                                             |
+                                             v
+                                       Rule 100210
+                                             |
+                                             v
+                                      SOC Investigation
 ```
 
 ---
 
 # Troubleshooting Realizado
 
-Alguns problemas resolvidos durante a construção do laboratório:
+Durante a construção do laboratório foram investigados e resolvidos diversos problemas.
+
+---
 
 ## Wazuh Agent
 
-Foi necessário validar:
+Foram validados:
 
 ```text
 agent registration
@@ -2092,9 +2320,11 @@ Windows service
 event channel collection
 ```
 
+---
+
 ## Sysmon
 
-Foi ajustada a configuração para equilibrar:
+A configuração foi ajustada para equilibrar:
 
 ```text
 visibility
@@ -2102,37 +2332,41 @@ vs.
 event volume
 ```
 
+---
+
 ## RDP
 
-Foi identificado que:
-
-```text
-Windows 10 Home
-```
-
-não funciona como servidor RDP nativo.
-
-O Windows Server 2022 foi utilizado como alvo RDP.
-
-Também foi identificado que falhas RDP com NLA podem aparecer como:
+Foi identificado que falhas RDP com NLA podem aparecer como:
 
 ```text
 4625 Logon Type 3
 ```
 
-e, portanto, precisam de contexto adicional antes de serem classificadas como RDP.
+e precisam de contexto adicional antes de serem classificadas como falhas RDP.
+
+Também foi validado:
+
+```text
+4624 Logon Type 10
+```
+
+como evidência endpoint-side de successful RDP logon.
+
+---
 
 ## Wazuh Logtest
 
-Durante troubleshooting do Event 261, foi observado que reproduzir um `full_log` via `wazuh-logtest` pode não representar exatamente o pipeline real de um evento Windows EventChannel.
+Durante troubleshooting do Event 261, foi observado que reenviar um `full_log` pelo `wazuh-logtest` pode não representar exatamente o pipeline real de um evento Windows EventChannel.
 
-A validação final foi realizada em produção no próprio laboratório.
+A validação final foi realizada com eventos reais recebidos dos agentes.
+
+---
 
 ## VirtualBox Network Visibility
 
 Inicialmente, a interface de gerenciamento `enp0s8` não recebia tráfego unicast entre as outras VMs.
 
-Foi criada uma terceira interface:
+Foi criada:
 
 ```text
 enp0s9
@@ -2153,9 +2387,31 @@ and
 192.168.100.30
 ```
 
+---
+
+## VirtualBox Host-Only Adapter Reset
+
+Após atualização do VirtualBox, o adaptador Host-Only do host voltou para uma configuração padrão diferente da rede do laboratório.
+
+Sintoma:
+
+```text
+host could no longer reach 192.168.100.10
+```
+
+A rede de gerenciamento foi restaurada para:
+
+```text
+192.168.100.1/24
+```
+
+permitindo novamente acesso ao `soc01`.
+
+---
+
 ## Suricata Rule Tuning
 
-A regra de port scan inicialmente gerava alertas excessivos após o threshold.
+A regra de port scan inicialmente gerava volume maior após o threshold.
 
 A mudança de:
 
@@ -2173,52 +2429,51 @@ reduziu alertas repetitivos.
 
 ---
 
-
 ## Zeek Shutdown Investigation
 
-Após um reboot, o Zeek apareceu como:
+Um estado `crashed` após reboot foi investigado.
 
-```text
-crashed
-```
-
-O diagnóstico mostrou:
-
-```text
-received termination signal
-TERMINATED [atexit]
-```
+Os logs mostraram que o processo recebeu sinal de término durante o shutdown completo do sistema.
 
 Não houve evidência de:
 
 ```text
 OOM
-segfault
+segmentation fault
 core dump
 ```
 
-O journal confirmou desligamento completo do sistema no mesmo timestamp, incluindo SSH, Suricata e todos os componentes Wazuh.
-
-Foi criado um serviço systemd para garantir inicialização automática do Zeek após boot.
-
-## Zeek WebSocket Warning
-
-O ZeekControl apresentou aviso relacionado ao módulo Python `websockets`.
-
-Esse aviso afeta comandos auxiliares do ZeekControl, mas não impediu:
-
-```text
-packet capture
-conn.log
-dns.log
-JSON logging
-Wazuh ingestion
-custom detections
-```
+O problema foi classificado como término normal durante shutdown, não crash interno.
 
 ---
 
-# Status
+## Cross-Agent Wazuh Correlation
+
+A primeira tentativa da Rule `100205` não correlacionou:
+
+```text
+Suricata 100185
+Agent 000 / soc01
+```
+
+com:
+
+```text
+Windows 100175
+Agent 002 / WINSERVER2022
+```
+
+A correlação passou a funcionar após utilização de:
+
+```xml
+<global_frequency />
+```
+
+Isso permitiu correlação temporal entre eventos processados sob agentes diferentes.
+
+---
+
+# Status Atual
 
 ## Endpoint Visibility
 
@@ -2229,7 +2484,11 @@ Process Creation              VALIDATED
 Network Connect               VALIDATED
 DNS Query                     VALIDATED
 PowerShell 4104               VALIDATED
+Process Tree Investigation    VALIDATED
+Discovery Detection           VALIDATED
 ```
+
+---
 
 ## Authentication Visibility
 
@@ -2242,6 +2501,8 @@ Success After Guessing        VALIDATED
 Lockout After Guessing        VALIDATED
 ```
 
+---
+
 ## RDP Visibility
 
 ```text
@@ -2252,25 +2513,50 @@ Successful RDP Logon          VALIDATED
 Success After RDP Guessing    VALIDATED
 ```
 
-## Network Visibility
+---
+
+## Suricata Visibility
 
 ```text
 Passive packet capture        VALIDATED
 Promiscuous visibility        VALIDATED
-Suricata AF_PACKET            VALIDATED
-Suricata EVE JSON             VALIDATED
-Wazuh Suricata ingestion      VALIDATED
-Suricata RDP alert            VALIDATED
+AF_PACKET                     VALIDATED
+RDP protocol visibility       VALIDATED
+EVE JSON                      VALIDATED
+Wazuh ingestion               VALIDATED
+RDP custom alert              VALIDATED
 TCP port scan alert           VALIDATED
-Zeek standalone               VALIDATED
-Zeek JSON logging             VALIDATED
-Zeek capture loss 0.00%       VALIDATED
-Zeek conn.log                 VALIDATED
-Zeek dns.log                  VALIDATED
-Zeek RDP metadata             VALIDATED
-Wazuh Zeek ingestion          VALIDATED
-Zeek DNS query alert          VALIDATED
+```
+
+---
+
+## Zeek Visibility
+
+```text
+Standalone capture            VALIDATED
+conn.log                      VALIDATED
+dns.log                       VALIDATED
+JSON logging                  VALIDATED
+Wazuh ingestion               VALIDATED
+RDP connection metadata       VALIDATED
+Controlled DNS query          VALIDATED
 DNS beacon-like correlation   VALIDATED
+0.00% capture loss test       VALIDATED
+systemd persistence           VALIDATED
+```
+
+---
+
+## Multi-Source Correlation
+
+```text
+Suricata + Windows            VALIDATED
+Rule 100205                   VALIDATED
+Cross-agent correlation       VALIDATED
+
+Suricata + Zeek + Windows     VALIDATED
+Rule 100210                   VALIDATED
+Level 15 tri-source alert     VALIDATED
 ```
 
 ---
@@ -2288,9 +2574,9 @@ Windows Authentication
           +
 RDP Authentication Correlation
           +
-Suricata IDS Telemetry
+Suricata Network IDS
           +
-Zeek Network Metadata
+Zeek Network Security Monitoring
           |
           v
         Wazuh
@@ -2299,23 +2585,66 @@ Zeek Network Metadata
 Detection Engineering
           |
           v
+Multi-Source Correlation
+          |
+          v
 SOC Investigation
 ```
 
 ---
 
-# Next Steps
+# Casos Documentados
 
-Próximas evoluções planejadas para o laboratório:
+```text
+cases/case-100130-discovery.txt
+cases/case-100140-password-guessing.txt
+cases/case-100150-success-after-password-guessing.txt
+cases/case-100155-account-lockout-after-password-guessing.txt
+cases/case-100175-rdp-success-after-password-guessing.txt
+cases/case-100180-suricata-rdp.txt
+cases/case-100185-suricata-port-scan.txt
+cases/case-100190-zeek-rdp-connection.txt
+cases/case-100195-zeek-dns-query.txt
+cases/case-100200-zeek-dns-beacon-like.txt
+cases/case-100210-tri-source-rdp-correlation.txt
+```
 
-1. correlacionar telemetria Suricata + Zeek + endpoint em cenários únicos;
-2. expandir detecções de DNS, reconnaissance e lateral movement;
-3. analisar e documentar regras ET Open relevantes;
-4. criar hunting queries usando metadata Zeek;
-5. evoluir dashboards e visualizações no Wazuh;
-6. adicionar novos protocolos e cenários de rede;
-7. adicionar mais automação para investigação;
-8. continuar documentando cada cenário com evidência técnica reproduzível.
+---
+
+# Documentação Técnica
+
+```text
+docs/process-tree-investigation.md
+docs/windows-authentication-monitoring.md
+docs/suricata-network-monitoring.md
+docs/zeek-network-monitoring.md
+docs/tri-source-rdp-correlation.md
+```
+
+---
+
+# Próximos Passos
+
+Com a correlação tri-source validada, as próximas evoluções planejadas são:
+
+1. criar hunting queries no Wazuh para reconstrução de timelines;
+2. evoluir dashboards para separar endpoint, authentication e network telemetry;
+3. expandir detecções Suricata e analisar assinaturas ET Open relevantes;
+4. criar novos casos de DNS e network behavior;
+5. adicionar cenários de lateral movement além de RDP;
+6. criar detecções de persistence e privilege escalation;
+7. ampliar investigação com Sysmon após successful remote access;
+8. desenvolver novas automações para triagem;
+9. avaliar integração adicional com Splunk;
+10. documentar cada novo cenário com evidência reproduzível.
+
+---
+
+# Repository
+
+```text
+https://github.com/LuucasVerdun/soc-blue-team-homelab
+```
 
 ---
 
@@ -2331,6 +2660,6 @@ Este projeto existe exclusivamente para:
 - DFIR;
 - Cybersecurity.
 
-Os testes foram executados em um laboratório isolado e autorizado.
+Todos os testes foram executados em ambiente isolado e autorizado.
 
 Nenhum dos procedimentos descritos deve ser utilizado contra sistemas, contas ou redes sem autorização explícita.

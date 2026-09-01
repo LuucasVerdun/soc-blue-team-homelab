@@ -262,5 +262,43 @@
     </mitre>
   </rule>
 
+  <rule id="100205" level="15" timeframe="600">
+    <if_sid>100175</if_sid>
+    <if_matched_sid>100185</if_matched_sid>
+
+    <global_frequency />
+
+    <field name="win.eventdata.ipAddress">^192\.168\.100\.20$</field>
+
+    <description>SOC LAB: Network reconnaissance followed by successful RDP access after password guessing.</description>
+
+    <group>correlation,multi_source,suricata,windows,rdp,reconnaissance,lateral_movement,soc_lab,</group>
+
+    <mitre>
+      <id>T1046</id>
+      <id>T1021.001</id>
+      <id>T1078.003</id>
+    </mitre>
+  </rule>
+
+  <rule id="100210" level="15" timeframe="300">
+    <if_sid>100205</if_sid>
+    <if_matched_sid>100190</if_matched_sid>
+
+    <global_frequency />
+
+    <field name="win.eventdata.ipAddress">^192\.168\.100\.20$</field>
+
+    <description>SOC LAB: Tri-source correlation - Suricata reconnaissance, Zeek RDP network activity, and successful Windows RDP access after password guessing.</description>
+
+    <group>correlation,multi_source,suricata,zeek,windows,rdp,reconnaissance,credential_access,lateral_movement,soc_lab,</group>
+
+    <mitre>
+      <id>T1046</id>
+      <id>T1110.001</id>
+      <id>T1021.001</id>
+      <id>T1078.003</id>
+    </mitre>
+  </rule>
 
 </group>
