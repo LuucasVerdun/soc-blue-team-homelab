@@ -1,0 +1,100 @@
+SOC BLUE TEAM HOME LAB
+CASE 04 — SUSPICIOUS FILE / MALWARE TRIAGE
+DATE: 2026-09-01
+
+FILE
+----
+invoice_security_update.ps1
+Size: 757 bytes
+Type: ASCII text
+
+HASHES
+------
+SHA256: c931381865e91f9f323d8133feaa71799e2567c7049feef47e3c426364b96e4a
+SHA1:   b304053ffff05055ad87048dd2d9be1b9ad0fb2c
+MD5:    cef23f37273e1a29c58a47d2eb6d3ea0
+
+AUTHENTICODE
+------------
+Status: NotSigned
+
+STATIC OBSERVABLES
+------------------
+https://updates-security.example/payload.dll
+203.0.113.88
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+rundll32.exe
+powershell.exe -EncodedCommand <CONTROLLED_SAMPLE>
+C:\Users\Public\update.dll
+
+All above values are located in PowerShell comments.
+
+CONTROLLED EXECUTION
+--------------------
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\vboxuser\Desktop\invoice_security_update.ps1
+
+OBSERVED RESULT
+---------------
+Marker created:
+C:\Users\vboxuser\AppData\Local\Temp\soc-malware-triage-marker.txt
+
+Marker size:
+63 bytes
+
+Marker content:
+Controlled SOC lab sample - no malicious action performed.
+
+PROCESS SNAPSHOT
+----------------
+powershell.exe observed.
+rundll32.exe not present in the post-execution snapshot.
+This snapshot alone does not prove a process never executed.
+
+WAZUH / SYSMON
+--------------
+Rule 92200 / Level 6
+Sysmon Event ID 11
+File created:
+C:\Users\vboxuser\Desktop\invoice_security_update.ps1
+Source image:
+C:\Windows\System32\OpenSSH\sftp-server.exe
+
+Rule 92029 / Level 6
+Sysmon Event ID 1
+PowerShell execution:
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\vboxuser\Desktop\invoice_security_update.ps1
+User: WIN10\vboxuser
+Integrity: High
+PID: 7392
+MITRE: T1059.001
+
+Rule 91816 / Level 4
+PowerShell Event ID 4104
+Full script content logged.
+
+KEY ANALYTICAL FINDING
+----------------------
+Searches for:
+203.0.113.88
+updates-security.example
+
+matched the PowerShell 4104 ScriptBlock because these strings exist in comments.
+
+This is NOT evidence of network communication.
+
+VERDICT
+-------
+BENIGN CONTROLLED SAMPLE
+WITH SUSPICIOUS STATIC INDICATORS
+
+No evidence collected in this exercise established:
+- C2 communication
+- payload download
+- persistence
+- rundll32 execution
+- EncodedCommand execution
+- malicious DLL execution
+
+Analytical principle:
+STRING MATCH != BEHAVIORAL EVIDENCE
+

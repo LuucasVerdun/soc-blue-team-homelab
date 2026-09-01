@@ -23,6 +23,9 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 03 — Phishing Email Investigation](portfolio/03-phishing-investigation.md)**
   Análise de headers, SPF/DKIM/DMARC, domínio lookalike, URL, attachment, IOCs e decisão de escalonamento.
 
+- **[Case 04 — Suspicious File / Malware Triage](portfolio/04-suspicious-file-malware-triage.md)**
+  Hashes, Authenticode, análise estática, Sysmon, PowerShell 4104, Wazuh e diferenciação entre string match e comportamento real.
+
 **Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, RDP investigation, timeline reconstruction, MITRE ATT&CK e incident escalation.
 
 ---

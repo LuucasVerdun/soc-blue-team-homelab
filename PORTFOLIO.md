@@ -332,7 +332,76 @@ phishing/case03/
 
 ---
 
-## 04 — Windows Password Guessing
+## 04 — Suspicious File / Malware Triage
+
+**Status:** Validated
+**Verdict:** Benign Controlled Sample with Suspicious Static Indicators
+
+### Scenario
+
+An unsigned PowerShell file was triaged using a SOC N1 workflow combining static analysis, Authenticode validation, controlled execution, Sysmon telemetry, PowerShell Script Block Logging, and Wazuh alerts.
+
+### Analysis Performed
+
+- file type and size identification;
+- SHA256, SHA1, and MD5 calculation;
+- Authenticode signature validation;
+- static string analysis;
+- controlled PowerShell execution;
+- Sysmon Event ID 1 analysis;
+- Sysmon Event ID 11 analysis;
+- PowerShell Event ID 4104 analysis;
+- Wazuh alert interpretation;
+- IOC / observable classification;
+- escalation decision.
+
+### Key Findings
+
+```text
+File:
+invoice_security_update.ps1
+
+SHA256:
+c931381865e91f9f323d8133feaa71799e2567c7049feef47e3c426364b96e4a
+
+Authenticode:
+NotSigned
+
+Wazuh:
+92200 - File creation
+92029 - PowerShell execution
+91816 - Script Block content
+```
+
+The sample contained suspicious-looking strings such as a C2-style URL, IP address, Run-key path, `rundll32.exe`, and `EncodedCommand`, but these values were located inside PowerShell comments.
+
+The controlled execution created only a harmless marker file.
+
+### Key Analytical Lesson
+
+```text
+STRING MATCH != BEHAVIORAL EVIDENCE
+```
+
+A SIEM search can match strings stored inside script content or logs. Analysts must validate event type and field context before concluding that network communication, process execution, or persistence actually occurred.
+
+### MITRE ATT&CK Context
+
+- `T1059.001` — PowerShell (directly supported by process telemetry)
+- Native Wazuh mappings such as `T1105` and `T1082` were reviewed in context rather than treated as automatic proof of malicious behavior.
+
+### Evidence
+
+```text
+portfolio/04-suspicious-file-malware-triage.md
+tickets/SOC-004-malware-triage.md
+evidence/case04-evidence-summary.txt
+malware/case04/
+```
+
+---
+
+## 05 — Windows Password Guessing
 
 **Status:** Validated
 
@@ -370,7 +439,7 @@ cases/case-100140-password-guessing.txt
 
 ---
 
-## 05 — Successful Logon After Password Guessing
+## 06 — Successful Logon After Password Guessing
 
 **Status:** Validated
 **Severity:** High
@@ -405,7 +474,7 @@ cases/case-100150-success-after-password-guessing.txt
 
 ---
 
-## 06 — Account Lockout After Password Guessing
+## 07 — Account Lockout After Password Guessing
 
 **Status:** Validated
 
@@ -434,7 +503,7 @@ cases/case-100155-account-lockout-after-password-guessing.txt
 
 ---
 
-## 07 — DNS Beacon-Like Activity
+## 08 — DNS Beacon-Like Activity
 
 **Status:** Validated in controlled lab scenario
 
@@ -533,7 +602,7 @@ Recommend response / escalation
 | MITRE ATT&CK Mapping | Validated |
 | Incident Documentation | Validated |
 | Phishing Investigation | Validated |
-| Malware Triage | Planned |
+| Malware Triage | Validated |
 | Web Attack Investigation | Planned |
 
 ---
@@ -592,11 +661,11 @@ The full `README.md` contains the detailed technical build and implementation hi
 
 The next portfolio scenarios are intentionally aligned with common SOC N1 responsibilities:
 
-1. Malware triage
-2. Web attack investigation
-3. DNS investigation with endpoint-process correlation
-4. Additional SOC ticket and escalation scenarios
-5. Post-compromise endpoint investigation
+1. Web attack investigation
+2. DNS investigation with endpoint-process correlation
+3. Additional SOC ticket and escalation scenarios
+4. Post-compromise endpoint investigation
+5. Expand malware triage with reputation and sandbox analysis
 
 ---
 
