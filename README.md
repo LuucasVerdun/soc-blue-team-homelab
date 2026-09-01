@@ -6,6 +6,22 @@ O ambiente foi construído para reproduzir fluxos reais de um SOC: coleta de tel
 
 > Todos os testes descritos neste repositório foram executados em ambiente de laboratório próprio, controlado e autorizado.
 
+## 🎯 Portfólio SOC Analyst N1
+
+Para uma visão rápida das competências práticas demonstradas neste laboratório:
+
+**[→ Acessar o Portfólio SOC Analyst N1](PORTFOLIO.md)**
+
+### Investigações em destaque
+
+- **[Case 01 — Tri-Source RDP Correlation](portfolio/01-tri-source-rdp-correlation.md)**
+  Suricata + Zeek + Windows Security Events + Wazuh, com correlação final Level 15.
+
+- **[Case 02 — PowerShell and Discovery Activity](portfolio/02-powershell-discovery.md)**
+  Sysmon, PowerShell, análise de processos, comandos de discovery e MITRE ATT&CK.
+
+**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, RDP investigation, timeline reconstruction, MITRE ATT&CK e incident escalation.
+
 ---
 
 ## Objetivos
