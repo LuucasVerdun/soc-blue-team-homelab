@@ -20,6 +20,9 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 02 — PowerShell and Discovery Activity](portfolio/02-powershell-discovery.md)**
   Sysmon, PowerShell, análise de processos, comandos de discovery e MITRE ATT&CK.
 
+- **[Case 03 — Phishing Email Investigation](portfolio/03-phishing-investigation.md)**
+  Análise de headers, SPF/DKIM/DMARC, domínio lookalike, URL, attachment, IOCs e decisão de escalonamento.
+
 **Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, RDP investigation, timeline reconstruction, MITRE ATT&CK e incident escalation.
 
 ---

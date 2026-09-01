@@ -130,8 +130,8 @@ The Windows Server is used for RDP, authentication, account-lockout, and correla
 
 ## 01 — Tri-Source RDP Correlation
 
-**Status:** Validated  
-**Severity:** Level 15  
+**Status:** Validated
+**Severity:** Level 15
 **Classification:** True Positive — Authorized Security Test
 
 ### Scenario
@@ -210,7 +210,7 @@ docs/tri-source-rdp-correlation.md
 
 ## 02 — Suspicious PowerShell and Discovery Activity
 
-**Status:** Validated  
+**Status:** Validated
 **Classification:** True Positive — Authorized Security Test
 
 ### Scenario
@@ -279,7 +279,60 @@ scripts/process-tree.sh
 
 ---
 
-## 03 — Windows Password Guessing
+## 03 — Phishing Email Investigation
+
+**Status:** Validated
+**Verdict:** True Positive — Controlled Phishing Simulation
+
+### Scenario
+
+A Microsoft 365-themed phishing sample was investigated using a SOC N1 triage workflow.
+
+### Analysis Performed
+
+- sender analysis;
+- Return-Path and Reply-To comparison;
+- Received header analysis;
+- SPF / DKIM / DMARC validation;
+- lookalike-domain identification;
+- URL extraction;
+- HTML attachment inspection;
+- SHA256 calculation;
+- IOC extraction;
+- escalation decision.
+
+### Key Findings
+
+```text
+Sender:
+security-update@micros0ft-support.example
+
+SPF:
+fail
+
+DKIM:
+none
+
+DMARC:
+fail
+
+URL:
+https://login-microsoft365.example/verify
+```
+
+The attachment was not classified as malware based on the static checks performed.
+
+### Evidence
+
+```text
+portfolio/03-phishing-investigation.md
+tickets/SOC-003-phishing-ticket.md
+phishing/case03/
+```
+
+---
+
+## 04 — Windows Password Guessing
 
 **Status:** Validated
 
@@ -317,9 +370,9 @@ cases/case-100140-password-guessing.txt
 
 ---
 
-## 04 — Successful Logon After Password Guessing
+## 05 — Successful Logon After Password Guessing
 
-**Status:** Validated  
+**Status:** Validated
 **Severity:** High
 
 ### Detection Chain
@@ -352,7 +405,7 @@ cases/case-100150-success-after-password-guessing.txt
 
 ---
 
-## 05 — Account Lockout After Password Guessing
+## 06 — Account Lockout After Password Guessing
 
 **Status:** Validated
 
@@ -381,7 +434,7 @@ cases/case-100155-account-lockout-after-password-guessing.txt
 
 ---
 
-## 06 — DNS Beacon-Like Activity
+## 07 — DNS Beacon-Like Activity
 
 **Status:** Validated in controlled lab scenario
 
@@ -479,7 +532,7 @@ Recommend response / escalation
 | Multi-Source Correlation | Validated |
 | MITRE ATT&CK Mapping | Validated |
 | Incident Documentation | Validated |
-| Phishing Investigation | Planned |
+| Phishing Investigation | Validated |
 | Malware Triage | Planned |
 | Web Attack Investigation | Planned |
 
@@ -539,11 +592,11 @@ The full `README.md` contains the detailed technical build and implementation hi
 
 The next portfolio scenarios are intentionally aligned with common SOC N1 responsibilities:
 
-1. Phishing email investigation
-2. Malware triage
-3. Web attack investigation
-4. DNS investigation with endpoint-process correlation
-5. SOC ticket and escalation documentation
+1. Malware triage
+2. Web attack investigation
+3. DNS investigation with endpoint-process correlation
+4. Additional SOC ticket and escalation scenarios
+5. Post-compromise endpoint investigation
 
 ---
 

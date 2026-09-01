@@ -1,0 +1,53 @@
+Date: Tue, 01 Sep 2026 03:50:06 -0000
+From: Microsoft 365 Security <security-update@micros0ft-support.example>
+To: SOC Lab User <employee@example.internal>
+Subject: URGENT: Your Microsoft 365 password expires today
+Message-ID: <178823460616.298.15035107718311489007@micros0ft-support.example>
+Return-Path: <billing@mailer.example>
+Reply-To: helpdesk-reset@account-security.example
+Received: from unknown-host.example (unknown-host.example [203.0.113.77]) by
+ mail.example.internal with ESMTP id LAB20260901 for
+ <employee@example.internal>; Tue, 01 Sep 2026 03:10:00 +0000
+Authentication-Results: mail.example.internal; spf=fail
+ smtp.mailfrom=micros0ft-support.example; dkim=none; dmarc=fail
+ header.from=micros0ft-support.example
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============0903978550875120658=="
+
+--===============0903978550875120658==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Hello,
+
+Your Microsoft 365 password is scheduled to expire today.
+
+To avoid losing access to email and company resources, review your account se=
+curity immediately:
+
+https://login-microsoft365.example/verify
+
+An HTML copy of the security notice is attached.
+
+Regards,
+Microsoft 365 Security Team
+
+CONTROLLED SOC LAB SAMPLE =E2=80=94 all domains use reserved/non-routable nam=
+espaces.
+
+--===============0903978550875120658==
+Content-Type: text/html
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="Security_Update.html"
+MIME-Version: 1.0
+
+PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KPGhlYWQ+PG1ldGEgY2hhcnNldD0idXRm
+LTgiPjx0aXRsZT5TZWN1cml0eSBVcGRhdGU8L3RpdGxlPjwvaGVhZD4KPGJvZHk+CiAgPGgyPk1p
+Y3Jvc29mdCAzNjUgU2VjdXJpdHkgVXBkYXRlPC9oMj4KICA8cD5Zb3VyIHBhc3N3b3JkIGlzIHNj
+aGVkdWxlZCB0byBleHBpcmUgdG9kYXkuPC9wPgogIDxwPjxhIGhyZWY9Imh0dHBzOi8vbG9naW4t
+bWljcm9zb2Z0MzY1LmV4YW1wbGUvdmVyaWZ5Ij5SZXZpZXcgYWNjb3VudCBzZWN1cml0eTwvYT48
+L3A+CiAgPHA+VGhpcyBpcyBhIGNvbnRyb2xsZWQgU09DIGxhYiBhcnRpZmFjdC4gVGhlIC5leGFt
+cGxlIGRvbWFpbiBpcyByZXNlcnZlZCBhbmQgbm9uLXJvdXRhYmxlLjwvcD4KPC9ib2R5Pgo8L2h0
+bWw+Cg==
+
+--===============0903978550875120658==--
