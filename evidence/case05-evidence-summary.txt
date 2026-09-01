@@ -1,0 +1,130 @@
+CASE 05 — WEB ATTACK INVESTIGATION
+==================================
+
+SCENARIO
+--------
+Controlled HTTP command-injection-like request from WIN10 to IIS.
+
+SOURCE
+------
+WIN10
+IP: 192.168.100.20
+
+TARGET
+------
+WINSERVER2022
+IP: 192.168.100.30
+Port: 80/TCP
+Web server: Microsoft IIS
+
+Target resource:
+C:\inetpub\wwwroot\lab\index.html
+
+STATIC RESOURCE
+---------------
+Extension: .html
+Length: 81 bytes
+
+Content:
+<html><body><h1>SOC Web Lab</h1><p>Controlled HTTP test page.</p></body></html>
+
+BASELINE
+--------
+GET /lab/?host=127.0.0.1
+
+Observed by:
+- IIS
+- Zeek
+- Suricata
+
+HTTP status: 200
+
+CONTROLLED SUSPICIOUS REQUEST
+-----------------------------
+GET /lab/?host=127.0.0.1%3Bwhoami&case=command-injection-test03
+
+Decoded logical parameter:
+host=127.0.0.1;whoami
+
+IIS
+---
+Timestamp: 2026-09-01 15:15:56 UTC
+Server: 192.168.100.30
+Client: 192.168.100.20
+Method: GET
+URI: /lab/
+Query: host=127.0.0.1%3Bwhoami&case=command-injection-test03
+Status: 200
+
+ZEEK
+----
+Source: 192.168.100.20:50108
+Destination: 192.168.100.30:80
+Method: GET
+URI: /lab/?host=127.0.0.1;whoami&case=command-injection-test03
+Status: 200
+
+Normalization:
+IIS / Suricata: %3Bwhoami
+Zeek: ;whoami
+
+SURICATA
+--------
+SID: 1000003
+Signature: SOC LAB: Possible HTTP command injection attempt
+Source: 192.168.100.20:50108
+Destination: 192.168.100.30:80
+Method: GET
+HTTP status: 200
+Action: allowed
+
+Custom rule:
+alert http 192.168.100.20 any -> 192.168.100.30 80 (msg:"SOC LAB: Possible HTTP command injection attempt"; flow:established,to_server; http.uri; content:"|3b|whoami"; nocase; sid:1000003; rev:1;)
+
+WAZUH
+-----
+Native Suricata rule: 86601
+Custom rule: 100215
+Level: 10
+
+Description:
+SOC LAB: Suricata detected a possible HTTP command injection attempt against WINSERVER2022.
+
+Final alert:
+Source IP: 192.168.100.20
+Destination IP: 192.168.100.30
+Destination port: 80
+Suricata SID: 1000003
+Method: GET
+URL: /lab/?host=127.0.0.1%3Bwhoami&case=command-injection-test03
+HTTP status: 200
+IDS action: allowed
+
+PROCESS TELEMETRY LIMITATIONS
+-----------------------------
+Sysmon log: unavailable
+
+Windows audit policy:
+Process Creation    No Auditing
+
+Security Event ID 4688 search for whoami.exe returned no result.
+Because Process Creation auditing was disabled, this is NOT proof that a
+process definitively did not execute.
+
+The target was a static HTML file and no server-side logic was configured
+to pass the host parameter to a shell or command interpreter.
+
+VERDICT
+-------
+Classification:
+TRUE POSITIVE — HTTP Command Injection Attempt
+
+Successful exploitation:
+NOT CONFIRMED
+
+Host compromise:
+NOT ESTABLISHED
+
+Bounded analyst conclusion:
+No evidence of server-side command execution was identified in the telemetry
+collected during the investigation.

@@ -66,7 +66,7 @@
 
 </group>
 
-<group name="local,windows,authentication,brute_force,soc_lab,">
+<group name="local,soc_lab,">
 
   <rule id="100135" level="6">
     <if_sid>60122</if_sid>
@@ -299,6 +299,15 @@
       <id>T1021.001</id>
       <id>T1078.003</id>
     </mitre>
+  </rule>
+
+  <rule id="100215" level="10">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature_id">^1000003$</field>
+
+    <description>SOC LAB: Suricata detected a possible HTTP command injection attempt against WINSERVER2022.</description>
+
+    <group>suricata,ids,http,web_attack,command_injection,soc_lab,</group>
   </rule>
 
 </group>

@@ -26,7 +26,10 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 04 — Suspicious File / Malware Triage](portfolio/04-suspicious-file-malware-triage.md)**
   Hashes, Authenticode, análise estática, Sysmon, PowerShell 4104, Wazuh e diferenciação entre string match e comportamento real.
 
-**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, RDP investigation, timeline reconstruction, MITRE ATT&CK e incident escalation.
+- **[Case 05 — Web Attack Investigation](portfolio/05-web-attack-investigation.md)**
+  Investigação de tentativa de Command Injection HTTP com IIS, Suricata, Zeek, Wazuh e análise de URI codificada versus normalizada.
+
+**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, RDP investigation, timeline reconstruction, MITRE ATT&CK e incident escalation.
 
 ---
 

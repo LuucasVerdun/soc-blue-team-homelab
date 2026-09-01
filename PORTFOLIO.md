@@ -46,6 +46,7 @@ This portfolio is intentionally focused on the skills expected from a junior SOC
 - Suricata
 - Zeek
 - RDP traffic analysis
+- HTTP traffic and URI analysis
 - Port-scan detection
 - DNS monitoring
 - Connection metadata analysis
@@ -60,6 +61,7 @@ This portfolio is intentionally focused on the skills expected from a junior SOC
 - Successful-logon correlation
 - Account lockout investigation
 - Network + endpoint correlation
+- IIS access log analysis
 - True-positive classification
 - Authorized-test classification
 - Evidence preservation
@@ -401,7 +403,44 @@ malware/case04/
 
 ---
 
-## 05 — Windows Password Guessing
+## 05 — Web Attack Investigation
+
+**Status:** Validated
+**Severity:** Level 10
+**Classification:** True Positive — HTTP Command Injection Attempt
+**Exploitation:** Not Confirmed
+
+### Scenario
+
+A controlled HTTP request containing `host=127.0.0.1;whoami` was sent from `WIN10` to an IIS server on `WINSERVER2022`.
+
+### Telemetry
+
+- IIS access logs
+- Suricata SID `1000003`
+- Zeek HTTP telemetry
+- Wazuh Rule `100215`
+
+### Key Findings
+
+- IIS and Suricata recorded `%3Bwhoami` in the request.
+- Zeek exposed the normalized URI as `;whoami`.
+- Suricata detected the command-injection-like pattern.
+- Wazuh elevated the event to Level 10.
+- HTTP `200` did not establish successful command execution.
+- Sysmon was unavailable and Windows Process Creation auditing was disabled.
+
+### Analyst Decision
+
+**TRUE POSITIVE — HTTP Command Injection Attempt**
+
+Successful exploitation was **not confirmed**, and host compromise was **not established** by the collected telemetry.
+
+**Detailed investigation:** [portfolio/05-web-attack-investigation.md](portfolio/05-web-attack-investigation.md)
+
+---
+
+## 06 — Windows Password Guessing
 
 **Status:** Validated
 
@@ -439,7 +478,7 @@ cases/case-100140-password-guessing.txt
 
 ---
 
-## 06 — Successful Logon After Password Guessing
+## 07 — Successful Logon After Password Guessing
 
 **Status:** Validated
 **Severity:** High
@@ -474,7 +513,7 @@ cases/case-100150-success-after-password-guessing.txt
 
 ---
 
-## 07 — Account Lockout After Password Guessing
+## 08 — Account Lockout After Password Guessing
 
 **Status:** Validated
 
@@ -503,7 +542,7 @@ cases/case-100155-account-lockout-after-password-guessing.txt
 
 ---
 
-## 08 — DNS Beacon-Like Activity
+## 09 — DNS Beacon-Like Activity
 
 **Status:** Validated in controlled lab scenario
 
@@ -645,12 +684,13 @@ For recruiters and SOC hiring managers, the recommended order is:
 
 ```text
 1. PORTFOLIO.md
-2. docs/tri-source-rdp-correlation.md
-3. cases/case-100210-tri-source-rdp-correlation.txt
-4. docs/process-tree-investigation.md
-5. docs/windows-authentication-monitoring.md
-6. docs/suricata-network-monitoring.md
-7. docs/zeek-network-monitoring.md
+2. portfolio/05-web-attack-investigation.md
+3. docs/tri-source-rdp-correlation.md
+4. cases/case-100210-tri-source-rdp-correlation.txt
+5. docs/process-tree-investigation.md
+6. docs/windows-authentication-monitoring.md
+7. docs/suricata-network-monitoring.md
+8. docs/zeek-network-monitoring.md
 ```
 
 The full `README.md` contains the detailed technical build and implementation history.
@@ -661,11 +701,10 @@ The full `README.md` contains the detailed technical build and implementation hi
 
 The next portfolio scenarios are intentionally aligned with common SOC N1 responsibilities:
 
-1. Web attack investigation
-2. DNS investigation with endpoint-process correlation
-3. Additional SOC ticket and escalation scenarios
-4. Post-compromise endpoint investigation
-5. Expand malware triage with reputation and sandbox analysis
+1. DNS investigation with endpoint-process correlation
+2. Additional SOC ticket and escalation scenarios
+3. Post-compromise endpoint investigation
+4. Expand malware triage with reputation and sandbox analysis
 
 ---
 
