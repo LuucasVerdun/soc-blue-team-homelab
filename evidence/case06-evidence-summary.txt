@@ -1,0 +1,58 @@
+CASE 06 — DNS INVESTIGATION WITH ENDPOINT PROCESS ATTRIBUTION
+=============================================================
+
+FINAL FQDN
+----------
+case06-final-011757.soc-lab-beacon.example
+
+ENDPOINT
+--------
+Agent: WIN10
+IP: 192.168.100.20
+Sysmon Event ID: 22
+Wazuh Rule: 100220
+Level: 8
+Timestamp: 2026-09-04T04:18:50.263+0000
+Process: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+PID: 1052
+User: WIN10\vboxuser
+Query: case06-final-011757.soc-lab-beacon.example
+QueryStatus: 1460
+
+The active PowerShell session PID was independently confirmed as 1052.
+
+NETWORK
+-------
+Telemetry: Zeek
+Source: 192.168.100.20
+Destination: 192.168.100.30
+Port: 53/UDP
+Observed: repeated A and AAAA queries/retries for the same FQDN.
+
+FINAL CORRELATION
+-----------------
+Wazuh Rule: 100225
+Level: 13
+Timestamp: 2026-09-04T04:19:02.100+0000
+Agent: soc01
+Source: 192.168.100.20
+Destination: 192.168.100.30
+Destination port: 53
+Protocol: udp
+Query: case06-final-011757.soc-lab-beacon.example
+Current qtype: A
+
+The final alert previous_output preserved repeated DNS observations for the same FQDN.
+
+VERDICT
+-------
+TRUE POSITIVE — Suspicious Repeated DNS Activity with Endpoint Process Attribution
+
+Process attribution:
+PowerShell PID 1052
+
+C2 activity:
+NOT CONFIRMED
+
+Host compromise:
+NOT ESTABLISHED

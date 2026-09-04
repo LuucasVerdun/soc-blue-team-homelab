@@ -29,7 +29,10 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 05 — Web Attack Investigation](portfolio/05-web-attack-investigation.md)**
   Investigação de tentativa de Command Injection HTTP com IIS, Suricata, Zeek, Wazuh e análise de URI codificada versus normalizada.
 
-**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, RDP investigation, timeline reconstruction, MITRE ATT&CK e incident escalation.
+- **[Case 06 — DNS Investigation with Endpoint Process Attribution](portfolio/06-dns-endpoint-correlation.md)**
+  Correlação de Sysmon Event 22 + Zeek DNS + Wazuh para atribuir atividade DNS repetida ao processo no endpoint, com correlação final Level 13.
+
+**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, DNS investigation com process attribution, RDP investigation, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
 
 ---
 

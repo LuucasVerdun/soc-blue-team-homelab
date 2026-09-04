@@ -49,6 +49,7 @@ This portfolio is intentionally focused on the skills expected from a junior SOC
 - HTTP traffic and URI analysis
 - Port-scan detection
 - DNS monitoring
+- DNS process attribution
 - Connection metadata analysis
 - Passive network monitoring
 
@@ -61,6 +62,7 @@ This portfolio is intentionally focused on the skills expected from a junior SOC
 - Successful-logon correlation
 - Account lockout investigation
 - Network + endpoint correlation
+- Endpoint + network DNS correlation
 - IIS access log analysis
 - True-positive classification
 - Authorized-test classification
@@ -440,7 +442,70 @@ Successful exploitation was **not confirmed**, and host compromise was **not est
 
 ---
 
-## 06 — Windows Password Guessing
+## 06 — DNS Investigation with Endpoint Process Attribution
+
+**Status:** Validated
+**Severity:** Level 13
+**Classification:** True Positive — Suspicious Repeated DNS Activity with Endpoint Process Attribution
+
+### Scenario
+
+A controlled DNS query was generated from `WIN10` using a unique FQDN under `soc-lab-beacon.example`.
+
+Endpoint and network telemetry were correlated to identify both the repeated DNS activity and the process responsible for generating it.
+
+### Telemetry
+
+- Sysmon Event ID 22
+- Zeek `dns.log`
+- Wazuh
+
+### Detection Chain
+
+```text
+PowerShell PID 1052
+      ↓
+Sysmon Event 22
+      ↓
+Wazuh 100220
+      +
+Zeek repeated A / AAAA DNS activity
+      ↓
+100195 / 100200
+      ↓
+Wazuh 100225
+Level 13
+Multi-source correlation
+```
+
+### Key Findings
+
+- Sysmon attributed the controlled DNS query to `powershell.exe`.
+- The Sysmon process ID matched the active PowerShell session PID (`1052`).
+- Zeek independently observed repeated A and AAAA DNS activity for the same unique FQDN.
+- Wazuh correlated endpoint attribution and network repetition through rule `100225`.
+- The endpoint and final correlation alerts were approximately 12 seconds apart.
+
+### Analyst Interpretation
+
+The activity is a true positive for suspicious repeated DNS behavior with endpoint process attribution.
+
+The evidence does **not** establish a real command-and-control channel, malicious infrastructure, data transfer, or host compromise.
+
+MITRE ATT&CK `T1071.004 — DNS` is relevant as detection context, but C2 activity is not claimed as confirmed.
+
+### Evidence
+
+```text
+portfolio/06-dns-endpoint-correlation.md
+tickets/SOC-006-dns-endpoint-correlation.md
+evidence/case06-evidence-summary.txt
+dns/case06/case06-dns-correlation-checklist.md
+```
+
+---
+
+## 07 — Windows Password Guessing
 
 **Status:** Validated
 
@@ -478,7 +543,7 @@ cases/case-100140-password-guessing.txt
 
 ---
 
-## 07 — Successful Logon After Password Guessing
+## 08 — Successful Logon After Password Guessing
 
 **Status:** Validated
 **Severity:** High
@@ -513,7 +578,7 @@ cases/case-100150-success-after-password-guessing.txt
 
 ---
 
-## 08 — Account Lockout After Password Guessing
+## 09 — Account Lockout After Password Guessing
 
 **Status:** Validated
 
@@ -538,55 +603,6 @@ Account Lockout
 
 ```text
 cases/case-100155-account-lockout-after-password-guessing.txt
-```
-
----
-
-## 09 — DNS Beacon-Like Activity
-
-**Status:** Validated in controlled lab scenario
-
-### Scenario
-
-Repeated DNS queries were generated for a controlled indicator:
-
-```text
-soc-lab-beacon.example
-```
-
-### Telemetry
-
-- Zeek `dns.log`
-- Wazuh
-
-### Detection Chain
-
-```text
-100195
-Controlled suspicious DNS query
-      ↓
-4 events / 15 seconds
-same source
-same query
-      ↓
-100200
-Beacon-like DNS activity
-```
-
-### MITRE ATT&CK
-
-- `T1071.004` — DNS
-
-### Analyst Interpretation
-
-Repeated DNS requests with a regular pattern can be consistent with beaconing, but the DNS pattern alone does not prove malicious command-and-control activity. Endpoint and process context are required before making that conclusion.
-
-### Evidence
-
-```text
-cases/case-100195-zeek-dns-query.txt
-cases/case-100200-zeek-dns-beacon-like.txt
-docs/zeek-network-monitoring.md
 ```
 
 ---
@@ -685,12 +701,13 @@ For recruiters and SOC hiring managers, the recommended order is:
 ```text
 1. PORTFOLIO.md
 2. portfolio/05-web-attack-investigation.md
-3. docs/tri-source-rdp-correlation.md
-4. cases/case-100210-tri-source-rdp-correlation.txt
-5. docs/process-tree-investigation.md
-6. docs/windows-authentication-monitoring.md
-7. docs/suricata-network-monitoring.md
-8. docs/zeek-network-monitoring.md
+3. portfolio/06-dns-endpoint-correlation.md
+4. docs/tri-source-rdp-correlation.md
+5. cases/case-100210-tri-source-rdp-correlation.txt
+6. docs/process-tree-investigation.md
+7. docs/windows-authentication-monitoring.md
+8. docs/suricata-network-monitoring.md
+9. docs/zeek-network-monitoring.md
 ```
 
 The full `README.md` contains the detailed technical build and implementation history.
@@ -701,11 +718,9 @@ The full `README.md` contains the detailed technical build and implementation hi
 
 The next portfolio scenarios are intentionally aligned with common SOC N1 responsibilities:
 
-1. DNS investigation with endpoint-process correlation
-2. Additional SOC ticket and escalation scenarios
-3. Post-compromise endpoint investigation
-4. Expand malware triage with reputation and sandbox analysis
-
+1. Additional SOC ticket and escalation scenarios
+2. Post-compromise endpoint investigation
+3. Expand malware triage with reputation and sandbox analysis
 ---
 
 # Repository
