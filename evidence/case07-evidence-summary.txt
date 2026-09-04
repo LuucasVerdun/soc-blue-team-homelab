@@ -1,0 +1,75 @@
+CASE 07 — POST-COMPROMISE ENDPOINT INVESTIGATION
+================================================
+
+FINAL CLASSIFICATION
+--------------------
+TRUE POSITIVE — Discovery Followed by Scheduled Task Persistence and Execution
+
+DISCOVERY
+---------
+Timestamp: 2026-09-04T13:53:09.356+0000
+Wazuh Rule: 100130
+Level: 12
+Agent: WIN10
+Image: C:\Windows\System32\cmd.exe
+Parent: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+Integrity: High
+User: WIN10\vboxuser
+Command: cmd.exe /c "whoami & hostname & ipconfig & net user"
+
+SCHEDULED TASK REGISTRATION
+---------------------------
+Timestamp: 2026-09-04T13:53:45.612+0000
+Wazuh Rule: 100230
+Level: 13
+Windows Event ID: 106
+Task: \SOC-LAB-CASE07
+User: WIN10\vboxuser
+
+TASK EXECUTION
+--------------
+LastRunTime: 2026-09-04 10:53:53 local time
+LastTaskResult: 0
+Marker: C:\Users\Public\soc-case07-marker.txt
+Marker content: SOC CASE 07 CONTROLLED TASK
+
+FINAL CORRELATION
+-----------------
+Timestamp: 2026-09-04T13:53:56.260+0000
+Wazuh Rule: 100235
+Level: 15
+Windows Event ID: 1
+Process ID: 8384
+Image: C:\Windows\System32\cmd.exe
+Command: cmd.exe /c echo SOC CASE 07 CONTROLLED TASK > "C:\Users\Public\soc-case07-marker.txt"
+Parent process: C:\Windows\System32\svchost.exe
+Parent command: C:\Windows\system32\svchost.exe -k netsvcs -p -s Schedule
+User: WIN10\vboxuser
+
+TIMELINE
+--------
+13:53:09 UTC — 100130 / Level 12 — Discovery from elevated PowerShell
+13:53:45 UTC — 100230 / Level 13 — Scheduled Task registration after discovery
+13:53:53 UTC — Task execution completed successfully
+13:53:56 UTC — 100235 / Level 15 — Task-driven cmd.exe execution correlated
+
+MITRE ATT&CK CONTEXT
+--------------------
+T1059.003 — Windows Command Shell
+T1033     — System Owner/User Discovery
+T1016     — System Network Configuration Discovery
+T1087.001 — Local Account Discovery
+T1053.005 — Scheduled Task/Job: Scheduled Task
+
+ANALYTICAL LIMITS
+-----------------
+Discovery: CONFIRMED
+Scheduled Task registration: CONFIRMED
+Task execution: CONFIRMED
+Payload: BENIGN CONTROLLED MARKER
+Malicious persistence: NOT CONFIRMED
+Host compromise: NOT ESTABLISHED
+
+RAW EVIDENCE
+------------
+cases/case-100235-discovery-persistence-execution.jsonl

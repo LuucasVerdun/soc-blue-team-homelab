@@ -330,4 +330,36 @@
     <group>correlation,multi_source,zeek,sysmon,dns,endpoint_attribution,beaconing,soc_lab,</group>
   </rule>
 
+  <rule id="100230" level="13" timeframe="120">
+    <if_sid>67014</if_sid>
+    <if_matched_sid>100130</if_matched_sid>
+
+    <field name="win.eventdata.taskName" type="pcre2">(?i)SOC-LAB-CASE07$</field>
+
+    <description>SOC LAB: Discovery activity was followed by registration of the controlled scheduled task $(win.eventdata.taskName).</description>
+
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+
+    <group>correlation,task_scheduler,persistence,discovery,soc_lab,</group>
+  </rule>
+
+  <rule id="100235" level="15" timeframe="90">
+    <if_sid>92052</if_sid>
+    <if_matched_sid>100230</if_matched_sid>
+
+    <field name="win.eventdata.parentCommandLine" type="pcre2">(?i)svchost\.exe.*-s\s+Schedule\b</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)SOC\s+CASE\s+07\s+CONTROLLED\s+TASK</field>
+
+    <description>SOC LAB: Correlated endpoint chain - discovery followed by scheduled task registration and task-driven command execution.</description>
+
+    <mitre>
+      <id>T1053.005</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>correlation,endpoint,sysmon,task_scheduler,persistence,execution,discovery,soc_lab,</group>
+  </rule>
+
 </group>

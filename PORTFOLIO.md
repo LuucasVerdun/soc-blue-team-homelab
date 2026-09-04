@@ -505,7 +505,99 @@ dns/case06/case06-dns-correlation-checklist.md
 
 ---
 
-## 07 — Windows Password Guessing
+## 07 — Post-Compromise Endpoint Investigation
+
+**Status:** Validated in controlled lab scenario
+
+### Scenario
+
+A controlled endpoint sequence was generated on `WIN10` to simulate behavior that could appear after an initial compromise:
+
+```text
+Elevated PowerShell
+      ↓
+cmd.exe
+      ↓
+whoami + hostname + ipconfig + net user
+      ↓
+Scheduled Task registration
+      ↓
+Task Scheduler service execution
+      ↓
+cmd.exe
+      ↓
+benign marker file
+```
+
+### Detection Chain
+
+```text
+100130 / Level 12
+Discovery from elevated PowerShell
+        ↓
+100230 / Level 13
+Scheduled Task registration after discovery
+        ↓
+100235 / Level 15
+Task-driven command execution
+```
+
+### Telemetry
+
+- Sysmon Event ID `1`
+- Microsoft-Windows-TaskScheduler/Operational
+- Wazuh native rule `67014`
+- Wazuh custom correlation rules `100230` and `100235`
+
+### Key Findings
+
+- Multiple discovery commands were executed from an elevated PowerShell context.
+- Task Scheduler Event ID `106` confirmed registration of `\SOC-LAB-CASE07`.
+- Sysmon showed `cmd.exe` launched by `svchost.exe -k netsvcs -p -s Schedule`.
+- The Scheduled Task completed successfully with `LastTaskResult = 0`.
+- The task created only a benign controlled marker file.
+- Wazuh correlated the full sequence into a Level 15 alert.
+
+### MITRE ATT&CK
+
+- `T1059.003` — Windows Command Shell
+- `T1033` — System Owner/User Discovery
+- `T1016` — System Network Configuration Discovery
+- `T1087.001` — Local Account Discovery
+- `T1053.005` — Scheduled Task/Job: Scheduled Task
+
+### Analyst Interpretation
+
+The investigation confirms discovery activity, Scheduled Task registration, and task-driven execution.
+
+The task and payload were intentionally created in an authorized lab. Therefore, the evidence does not establish malicious persistence or a real host compromise.
+
+### Classification
+
+**TRUE POSITIVE — Discovery Followed by Scheduled Task Persistence and Execution**
+
+```text
+Discovery:                   CONFIRMED
+Scheduled Task registration: CONFIRMED
+Task execution:              CONFIRMED
+Payload:                     BENIGN CONTROLLED MARKER
+Malicious persistence:       NOT CONFIRMED
+Host compromise:             NOT ESTABLISHED
+```
+
+### Evidence
+
+```text
+portfolio/07-post-compromise-endpoint-investigation.md
+tickets/SOC-007-post-compromise-endpoint-investigation.md
+evidence/case07-evidence-summary.txt
+cases/case-100235-discovery-persistence-execution.jsonl
+endpoint/case07/case07-post-compromise-investigation-checklist.md
+```
+
+---
+
+## 08 — Windows Password Guessing
 
 **Status:** Validated
 
@@ -543,7 +635,7 @@ cases/case-100140-password-guessing.txt
 
 ---
 
-## 08 — Successful Logon After Password Guessing
+## 09 — Successful Logon After Password Guessing
 
 **Status:** Validated
 **Severity:** High
@@ -578,7 +670,7 @@ cases/case-100150-success-after-password-guessing.txt
 
 ---
 
-## 09 — Account Lockout After Password Guessing
+## 10 — Account Lockout After Password Guessing
 
 **Status:** Validated
 
@@ -702,25 +794,24 @@ For recruiters and SOC hiring managers, the recommended order is:
 1. PORTFOLIO.md
 2. portfolio/05-web-attack-investigation.md
 3. portfolio/06-dns-endpoint-correlation.md
-4. docs/tri-source-rdp-correlation.md
-5. cases/case-100210-tri-source-rdp-correlation.txt
-6. docs/process-tree-investigation.md
-7. docs/windows-authentication-monitoring.md
-8. docs/suricata-network-monitoring.md
-9. docs/zeek-network-monitoring.md
+4. portfolio/07-post-compromise-endpoint-investigation.md
+5. docs/tri-source-rdp-correlation.md
+6. cases/case-100210-tri-source-rdp-correlation.txt
+7. docs/process-tree-investigation.md
+8. docs/windows-authentication-monitoring.md
+9. docs/suricata-network-monitoring.md
+10. docs/zeek-network-monitoring.md
 ```
 
 The full `README.md` contains the detailed technical build and implementation history.
 
 ---
-
 # Current Focus
 
 The next portfolio scenarios are intentionally aligned with common SOC N1 responsibilities:
 
 1. Additional SOC ticket and escalation scenarios
-2. Post-compromise endpoint investigation
-3. Expand malware triage with reputation and sandbox analysis
+2. Expand malware triage with reputation and sandbox analysis
 ---
 
 # Repository

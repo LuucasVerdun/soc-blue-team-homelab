@@ -32,7 +32,10 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 06 — DNS Investigation with Endpoint Process Attribution](portfolio/06-dns-endpoint-correlation.md)**
   Correlação de Sysmon Event 22 + Zeek DNS + Wazuh para atribuir atividade DNS repetida ao processo no endpoint, com correlação final Level 13.
 
-**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, DNS investigation com process attribution, RDP investigation, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
+- **[Case 07 — Post-Compromise Endpoint Investigation](portfolio/07-post-compromise-endpoint-investigation.md)**
+  Reconstrução de uma cadeia de discovery, registro e execução de Scheduled Task com Sysmon, Task Scheduler e Wazuh, culminando em correlação Level 15.
+
+**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, DNS investigation com process attribution, RDP investigation, Scheduled Task/persistence investigation, process ancestry, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
 
 ---
 
