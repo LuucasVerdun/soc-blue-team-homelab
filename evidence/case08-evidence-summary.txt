@@ -1,0 +1,117 @@
+CASE 08 — EVIDENCE SUMMARY
+================================
+
+Case:
+SOC Alert Triage & Escalation — HTTP File Transfer Followed by PowerShell File Creation
+
+Date:
+2026-09-08
+
+ENDPOINT
+--------
+Host: WIN10
+IP: 192.168.100.20
+User: WIN10\vboxuser
+Process: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+Target file: C:\Users\Public\case08-filecreate-131955.txt
+
+NETWORK SERVER
+--------------
+Host: WINSERVER2022
+IP: 192.168.100.30
+Service: IIS / HTTP TCP 80
+Resource: /lab/case08-benign.txt
+Request token: case08-download-131955
+
+SURICATA HTTP
+-------------
+Timestamp: 2026-09-08T16:20:32.634264+0000
+Source: 192.168.100.20:49959
+Destination: 192.168.100.30:80
+Method: GET
+URL: /lab/case08-benign.txt?case=case08-download-131955
+User-Agent: Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.19041.6456
+Content-Type: text/plain
+Protocol: HTTP/1.1
+Status: 200
+Length: 100
+
+SURICATA FILEINFO
+-----------------
+Timestamp: 2026-09-08T16:22:12.687026+0000
+Source: 192.168.100.30:80
+Destination: 192.168.100.20:49959
+Filename: /lab/case08-benign.txt
+State: CLOSED
+Stored: false
+Size: 100
+Gaps: false
+Transaction ID: 0
+
+WAZUH ENDPOINT DETECTION
+------------------------
+Rule: 100240
+Level: 8
+Timestamp: 2026-09-08T16:20:33.615+0000
+Agent: WIN10
+Detection: PowerShell FileCreate
+Target: C:\Users\Public\case08-filecreate-131955.txt
+
+WAZUH NETWORK DETECTION
+-----------------------
+Rule: 100245
+Level: 7
+Detection: Controlled Suricata HTTP file download
+Parent native rule: 86602
+
+WAZUH FINAL CORRELATION
+-----------------------
+Rule: 100255
+Level: 13
+Timestamp: 2026-09-08T16:20:34.131+0000
+Agent: soc01
+Description:
+SOC LAB: Multi-source correlation - PowerShell file creation on WIN10 correlated with an HTTP transfer observed by Suricata.
+
+MITRE:
+T1105 — Ingress Tool Transfer
+
+FILE INTEGRITY
+--------------
+IIS source SHA256:
+C4608BED81A785FD3E155A2225519241833D371853B64BE43FB93277F219CCD9
+
+WIN10 downloaded artifact SHA256:
+C4608BED81A785FD3E155A2225519241833D371853B64BE43FB93277F219CCD9
+
+Result:
+MATCH
+
+Downloaded content:
+SOC CASE 08 BENIGN DOWNLOAD
+Controlled SOC triage and escalation simulation.
+No malicious content.
+
+ASSESSMENT
+----------
+HTTP transfer: CONFIRMED
+HTTP 200: CONFIRMED
+PowerShell HTTP client: CONFIRMED
+Endpoint file creation: CONFIRMED
+Source/destination artifact integrity: CONFIRMED
+Downloaded artifact execution: NOT OBSERVED
+Malicious content: NOT ESTABLISHED
+Host compromise: NOT ESTABLISHED
+
+N1 DECISION
+-----------
+ESCALATE TO SOC N2
+
+FINAL LAB DISPOSITION
+---------------------
+TRUE POSITIVE DETECTION — AUTHORIZED CONTROLLED SIMULATION
+
+MITRE NOTE
+----------
+T1105 is used as a behavioral simulation of remote file transfer into an endpoint.
+The transferred object was a benign text file, not a confirmed adversary tool.

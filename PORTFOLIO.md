@@ -597,7 +597,95 @@ endpoint/case07/case07-post-compromise-investigation-checklist.md
 
 ---
 
-## 08 — Windows Password Guessing
+## 08 — SOC Alert Triage and Escalation: HTTP File Transfer + PowerShell File Creation
+
+**Status:** Validated in controlled lab scenario
+**Severity:** High
+**Disposition:** True Positive Detection — Authorized Controlled Simulation
+
+### Scenario
+
+A controlled PowerShell session on `WIN10` downloaded a benign text artifact from IIS on `WINSERVER2022`.
+
+The investigation was designed around the SOC N1 workflow: validate the alert, corroborate telemetry, determine what the evidence proves, identify what remains unknown, and decide whether escalation is justified.
+
+### Detection Chain
+
+```text
+Suricata HTTP
+86602
+   ↓
+100245 / Level 7
+Controlled HTTP transfer
+        +
+Sysmon Event ID 11
+61613
+   ↓
+100240 / Level 8
+PowerShell FileCreate
+        ↓
+100255 / Level 13
+Multi-source correlation
+```
+
+A symmetric correlation branch (`100250`) was also implemented because endpoint and network events were observed arriving in different orders during testing.
+
+### Telemetry
+
+- Suricata HTTP and `fileinfo`
+- Zeek HTTP
+- Sysmon Event ID `11`
+- Wazuh rules `100240`, `100245`, `100250`, and `100255`
+
+### Key Findings
+
+- `WIN10` requested the controlled resource from `192.168.100.30:80`.
+- The request used a Windows PowerShell user-agent.
+- The server returned HTTP `200`.
+- PowerShell created `C:\Users\Public\case08-filecreate-131955.txt`.
+- Suricata and Zeek independently observed the HTTP activity.
+- Wazuh generated a Level 13 multi-source correlation.
+- The IIS source artifact and downloaded endpoint artifact had the same SHA256:
+  `C4608BED81A785FD3E155A2225519241833D371853B64BE43FB93277F219CCD9`.
+
+### MITRE ATT&CK
+
+- `T1105` — Ingress Tool Transfer
+
+The mapping is used as a controlled behavioral simulation. The transferred object was a benign text file, not a confirmed malicious tool.
+
+### Analyst Decision
+
+```text
+HTTP transfer:              CONFIRMED
+HTTP 200:                   CONFIRMED
+PowerShell HTTP client:     CONFIRMED
+Endpoint file creation:     CONFIRMED
+Artifact integrity:         CONFIRMED
+Downloaded file execution: NOT OBSERVED
+Malicious content:          NOT ESTABLISHED
+Host compromise:            NOT ESTABLISHED
+```
+
+**SOC N1 decision:** ESCALATE TO SOC N2.
+
+In a production environment, an unexpected PowerShell-based HTTP transfer followed by file creation in `C:\Users\Public` provides sufficient suspicious context for escalation even when maliciousness or execution has not yet been established.
+
+**Final lab disposition:** TRUE POSITIVE DETECTION — AUTHORIZED CONTROLLED SIMULATION.
+
+### Evidence
+
+```text
+portfolio/08-soc-alert-triage-escalation.md
+tickets/SOC-008-http-file-transfer-escalation.md
+evidence/case08-evidence-summary.txt
+escalations/ESC-008-soc-n1-to-n2.md
+endpoint/case08/case08-triage-escalation-checklist.md
+```
+
+---
+
+## 09 — Windows Password Guessing
 
 **Status:** Validated
 
@@ -635,7 +723,7 @@ cases/case-100140-password-guessing.txt
 
 ---
 
-## 09 — Successful Logon After Password Guessing
+## 10 — Successful Logon After Password Guessing
 
 **Status:** Validated
 **Severity:** High
@@ -670,7 +758,7 @@ cases/case-100150-success-after-password-guessing.txt
 
 ---
 
-## 10 — Account Lockout After Password Guessing
+## 11 — Account Lockout After Password Guessing
 
 **Status:** Validated
 
@@ -795,12 +883,13 @@ For recruiters and SOC hiring managers, the recommended order is:
 2. portfolio/05-web-attack-investigation.md
 3. portfolio/06-dns-endpoint-correlation.md
 4. portfolio/07-post-compromise-endpoint-investigation.md
-5. docs/tri-source-rdp-correlation.md
-6. cases/case-100210-tri-source-rdp-correlation.txt
-7. docs/process-tree-investigation.md
-8. docs/windows-authentication-monitoring.md
-9. docs/suricata-network-monitoring.md
-10. docs/zeek-network-monitoring.md
+5. portfolio/08-soc-alert-triage-escalation.md
+6. docs/tri-source-rdp-correlation.md
+7. cases/case-100210-tri-source-rdp-correlation.txt
+8. docs/process-tree-investigation.md
+9. docs/windows-authentication-monitoring.md
+10. docs/suricata-network-monitoring.md
+11. docs/zeek-network-monitoring.md
 ```
 
 The full `README.md` contains the detailed technical build and implementation history.
@@ -808,10 +897,11 @@ The full `README.md` contains the detailed technical build and implementation hi
 ---
 # Current Focus
 
-The next portfolio scenarios are intentionally aligned with common SOC N1 responsibilities:
+The next portfolio scenarios are intentionally aligned with common SOC N1/N2 responsibilities:
 
-1. Additional SOC ticket and escalation scenarios
-2. Expand malware triage with reputation and sandbox analysis
+1. Expand malware triage with reputation and sandbox analysis
+2. Develop threat-hunting queries and timeline reconstruction
+3. Add additional investigation scenarios focused on lateral movement and privilege escalation
 ---
 
 # Repository

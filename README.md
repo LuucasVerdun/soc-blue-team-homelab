@@ -35,7 +35,10 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 07 — Post-Compromise Endpoint Investigation](portfolio/07-post-compromise-endpoint-investigation.md)**
   Reconstrução de uma cadeia de discovery, registro e execução de Scheduled Task com Sysmon, Task Scheduler e Wazuh, culminando em correlação Level 15.
 
-**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, DNS investigation com process attribution, RDP investigation, Scheduled Task/persistence investigation, process ancestry, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
+- **[Case 08 — SOC Alert Triage and Escalation](portfolio/08-soc-alert-triage-escalation.md)**
+  Investigação de transferência HTTP via PowerShell com Suricata, Zeek, Sysmon e Wazuh, correlação multi-source Level 13, validação SHA256 e decisão de escalonamento SOC N1 → N2 sem sobreafirmar malware ou comprometimento.
+
+**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
 
 ---
 
@@ -2049,6 +2052,13 @@ Arquivo:
 
 ```text
 cases/case-100210-tri-source-rdp-correlation.txt
+
+# Case 08 — SOC Alert Triage & Escalation
+portfolio/08-soc-alert-triage-escalation.md
+tickets/SOC-008-http-file-transfer-escalation.md
+evidence/case08-evidence-summary.txt
+escalations/ESC-008-soc-n1-to-n2.md
+endpoint/case08/case08-triage-escalation-checklist.md
 ```
 
 O arquivo contém nove registros JSON da janela final de teste.

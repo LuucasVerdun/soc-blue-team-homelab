@@ -97,6 +97,7 @@
     </mitre>
   </rule>
 
+
   <rule id="100150" level="14" timeframe="300">
     <if_sid>100145</if_sid>
     <if_matched_sid>100140</if_matched_sid>
@@ -210,6 +211,7 @@
     </mitre>
   </rule>
 
+
   <rule id="100190" level="5">
     <decoded_as>json</decoded_as>
 
@@ -227,6 +229,7 @@
     </mitre>
   </rule>
 
+
   <rule id="100195" level="7">
     <decoded_as>json</decoded_as>
 
@@ -234,6 +237,7 @@
     <field name="id.resp_h">^192\.168\.100\.30$</field>
     <field name="id.resp_p">^53$</field>
     <field name="query" type="pcre2">(?i)^(?:[a-z0-9-]+\.)*soc-lab-beacon\.example\.?$</field>
+
 
     <description>SOC LAB: Zeek detected a controlled suspicious DNS query from WIN10.</description>
 
@@ -317,6 +321,7 @@
     <group>sysmon,dns,endpoint_detection,soc_lab,</group>
   </rule>
 
+
   <rule id="100225" level="13" timeframe="60">
     <if_sid>100200</if_sid>
     <if_matched_sid>100220</if_matched_sid>
@@ -345,6 +350,7 @@
     <group>correlation,task_scheduler,persistence,discovery,soc_lab,</group>
   </rule>
 
+
   <rule id="100235" level="15" timeframe="90">
     <if_sid>92052</if_sid>
     <if_matched_sid>100230</if_matched_sid>
@@ -360,6 +366,73 @@
     </mitre>
 
     <group>correlation,endpoint,sysmon,task_scheduler,persistence,execution,discovery,soc_lab,</group>
+  </rule>
+
+
+  <rule id="100240" level="8">
+    <if_sid>61613</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)powershell\.exe$</field>
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)case08-filecreate-[0-9]+\.txt$</field>
+
+    <description>SOC LAB: PowerShell created a controlled file - $(win.eventdata.targetFilename).</description>
+
+    <group>sysmon,file_create,powershell,endpoint_detection,soc_lab,</group>
+  </rule>
+
+
+
+  <rule id="100245" level="7">
+    <if_sid>86602</if_sid>
+
+    <field name="src_ip">^192\.168\.100\.20$</field>
+    <field name="dest_ip">^192\.168\.100\.30$</field>
+    <field name="dest_port">^80$</field>
+    <field name="http.http_method">^GET$</field>
+    <field name="http.url" type="pcre2">(?i)^/lab/case08-benign\.txt\?case=case08-download-[0-9]+$</field>
+    <field name="http.status">^200$</field>
+
+    <description>SOC LAB: Suricata observed the controlled HTTP file download from WIN10.</description>
+
+    <group>suricata,http,file_transfer,network_detection,soc_lab,</group>
+  </rule>
+
+
+  <!-- Network event arrived first, endpoint event arrived second -->
+  <rule id="100250" level="13" timeframe="60">
+    <if_sid>100240</if_sid>
+    <if_matched_sid>100245</if_matched_sid>
+
+    <global_frequency />
+
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)case08-filecreate-[0-9]+\.txt$</field>
+
+    <description>SOC LAB: Multi-source correlation - HTTP transfer observed by Suricata followed by PowerShell file creation on WIN10.</description>
+
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+
+    <group>correlation,multi_source,suricata,sysmon,http,file_transfer,endpoint_detection,soc_lab,</group>
+  </rule>
+
+
+  <!-- Endpoint event arrived first, network event arrived second -->
+  <rule id="100255" level="13" timeframe="60">
+    <if_sid>100245</if_sid>
+    <if_matched_sid>100240</if_matched_sid>
+
+    <global_frequency />
+
+    <field name="http.url" type="pcre2">(?i)^/lab/case08-benign\.txt\?case=case08-download-[0-9]+$</field>
+
+    <description>SOC LAB: Multi-source correlation - PowerShell file creation on WIN10 correlated with an HTTP transfer observed by Suricata.</description>
+
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+
+    <group>correlation,multi_source,suricata,sysmon,http,file_transfer,endpoint_detection,soc_lab,</group>
   </rule>
 
 </group>
