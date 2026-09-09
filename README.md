@@ -38,7 +38,10 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 08 — SOC Alert Triage and Escalation](portfolio/08-soc-alert-triage-escalation.md)**
   Investigação de transferência HTTP via PowerShell com Suricata, Zeek, Sysmon e Wazuh, correlação multi-source Level 13, validação SHA256 e decisão de escalonamento SOC N1 → N2 sem sobreafirmar malware ou comprometimento.
 
-**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
+- **[Case 12 — Malware Reputation, Sandbox Analysis & IOC Hunting](portfolio/12-malware-reputation-sandbox-ioc-hunting.md)**
+  Análise de reputação e sandbox de uma amostra RemcosRAT publicamente reportada, validação de IOCs, retrospective hunting em Sysmon, Wazuh, Suricata e Zeek, hunting comportamental, análise de falsos positivos e identificação de limitações de telemetria — sem baixar ou executar malware real no laboratório.
+
+**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, malware triage, threat intelligence, public sandbox analysis, IOC extraction and validation, retrospective threat hunting, behavior-based hunting, false-positive validation, telemetry coverage analysis, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
 
 ---
 
@@ -2602,6 +2605,34 @@ Level 15 tri-source alert     VALIDATED
 
 ---
 
+## Threat Intelligence & Threat Hunting
+
+```text
+Public malware reputation analysis     VALIDATED
+Public sandbox report analysis         VALIDATED
+IOC extraction and validation          VALIDATED
+Retrospective IOC hunting              VALIDATED
+Behavior-based threat hunting          VALIDATED
+Sysmon Event 3 network hunting         VALIDATED
+Sysmon Event 22 DNS hunting            VALIDATED
+False-positive contextual validation   VALIDATED
+Telemetry gap identification           VALIDATED
+```
+
+### Telemetry Coverage Limitation
+
+O WIN10 utiliza duas interfaces de rede. O tráfego interno da rede Host-Only é monitorado passivamente por Suricata e Zeek através do sensor dedicado `enp0s9`.
+
+Conexões do WIN10 com a Internet podem utilizar a interface NAT `10.0.2.3` e não necessariamente atravessam o segmento observado por `enp0s9`.
+
+Por esse motivo, ausência de um IOC nos logs de Suricata ou Zeek não é tratada isoladamente como prova de ausência de comunicação externa.
+
+O Sysmon Event ID 3 fornece visibilidade complementar no endpoint, incluindo associação entre processo, endereço IP, porta, usuário e timestamp para conexões originadas pelo WIN10.
+
+Essa limitação foi considerada durante o Case 12 ao interpretar resultados negativos de threat hunting.
+
+---
+
 # Current Detection Layers
 
 ```text
@@ -2648,6 +2679,11 @@ cases/case-100190-zeek-rdp-connection.txt
 cases/case-100195-zeek-dns-query.txt
 cases/case-100200-zeek-dns-beacon-like.txt
 cases/case-100210-tri-source-rdp-correlation.txt
+malware/case12/case12-reputation-sandbox-ioc-hunting.md
+malware/case12/case12-ioc-behavior-matrix.csv
+evidence/case12-evidence-summary.txt
+portfolio/12-malware-reputation-sandbox-ioc-hunting.md
+tickets/SOC-012-malware-reputation-ioc-hunting.md
 ```
 
 ---
@@ -2666,18 +2702,13 @@ docs/tri-source-rdp-correlation.md
 
 # Próximos Passos
 
-Com a correlação tri-source validada, as próximas evoluções planejadas são:
+Com as investigações multi-source, triagem de malware, threat intelligence e retrospective hunting já validadas, as próximas evoluções planejadas são:
 
-1. criar hunting queries no Wazuh para reconstrução de timelines;
-2. evoluir dashboards para separar endpoint, authentication e network telemetry;
-3. expandir detecções Suricata e analisar assinaturas ET Open relevantes;
-4. criar novos casos de DNS e network behavior;
-5. adicionar cenários de lateral movement além de RDP;
-6. criar detecções de persistence e privilege escalation;
-7. ampliar investigação com Sysmon após successful remote access;
-8. desenvolver novas automações para triagem;
-9. avaliar integração adicional com Splunk;
-10. documentar cada novo cenário com evidência reproduzível.
+1. criar hunting queries reutilizáveis no Wazuh para IOC e behavior-based hunting;
+2. evoluir dashboards para separar endpoint, authentication, network e threat-hunting telemetry;
+3. ampliar a visibilidade do tráfego de Internet das VMs além do segmento Host-Only monitorado;
+4. expandir detecções Sysmon e Wazuh para comportamentos pós-comprometimento;
+5. adicionar novos cenários de lateral movement, credential access e endpoint investigation.
 
 ---
 

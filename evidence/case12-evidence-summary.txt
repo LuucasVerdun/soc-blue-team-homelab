@@ -1,0 +1,115 @@
+CASE 12 — MALWARE REPUTATION, SANDBOX ANALYSIS & IOC HUNTING
+Date: 2026-09-09
+Lab: SOC Home Lab
+Endpoint: WIN10
+Analyst safety decision: real malware sample was NOT downloaded or executed.
+
+EXTERNAL SAMPLE
+SHA256: 265c2e716b5d9295923b9787b7d80f01054407753ae342dedce57233af8f18de
+SHA1:   9629159e5cb69b19ad96c060b14cdc01335d20a3
+MD5:    87d63b1afea08697a07aefd3661c2a87
+Filename: 87D63B1AFEA08697A07AEFD3661C2A87.exe
+Family: Remcos / RemcosRAT
+MalwareBazaar C2 IOC: 208.64.33.69:2088
+Hatching Triage extracted C2 config: inspectormanna.duckdns.org:2088
+ThreatFox: inspectormanna.duckdns.org -> botnet_cc / Remcos / confidence 75% / TCP 2088
+
+EXTERNAL SANDBOX BEHAVIOR
+- Hatching Triage score: 10/10
+- Family: Remcos
+- System Language Discovery reported
+- Remcos inbound C2 Suricata alert reported
+- Remcos outbound C2 Suricata alert reported
+- Suspicious FindShellTrayWindow / SendNotifyMessage behavior reported
+
+INTERNAL IOC HUNT
+Zeek current + retained DNS/conn logs:
+- exact domain: NO MATCH
+- exact IP: NO MATCH
+- TCP/2088: NO MATCH
+- *.duckdns.org: NO MATCH
+
+Suricata eve.json + eve.json.1:
+- exact IP: NO MATCH
+- exact domain: NO MATCH
+- TCP/2088: NO MATCH
+- SHA256: NO MATCH
+- *.duckdns.org: NO MATCH
+NOTE: eve.json.1 contains at least one malformed JSON line. Tolerant line parsing and raw grep fallback were used; still NO MATCH.
+
+Wazuh:
+- current structured search: NO MATCH
+- retained .json.gz alerts: NO MATCH
+- retained uncompressed .json alerts: NO MATCH
+- initial broad-text hits were analyst-generated sudo/grep telemetry, not IOC observations
+
+ENDPOINT NETWORK HUNT
+Sysmon Event ID 3, last 14 days:
+- DestinationPort 2088: NO MATCH
+- DestinationIp 208.64.33.69: NO MATCH
+
+Sysmon Event ID 22, last 14 days:
+- duckdns.org: NO MATCH
+- inspectormanna.duckdns.org: NO MATCH
+
+SYSTEM LANGUAGE DISCOVERY HUNT
+Initial broad Sysmon search returned WMIC events.
+Validated context:
+- ParentImage: C:\Program Files (x86)\ossec-agent\wazuh-agent.exe
+- WMIC command queried local account disabled state, not language/locale.
+- Classified as contextual false match.
+
+Refined Sysmon Event ID 1 CommandLine hunt:
+- NO MATCH for supported command-based language-discovery patterns.
+
+reg.exe language/locale query hunt:
+- NO MATCH.
+
+PowerShell 4104 initial hunt:
+- matched analyst's own hunting regex.
+- classified as analyst-generated telemetry.
+
+Hunt cutoff established:
+- 2026-09-09 02:15:00 local time
+PowerShell 4104 before cutoff:
+- NO MATCH for language-discovery patterns.
+
+ARTIFACT HUNT
+Sysmon Event ID 1 exact SHA256 execution: NO MATCH
+Sysmon Event ID 11 exact filename creation: NO MATCH
+Filesystem search in C:\Users, C:\ProgramData, C:\Windows\Temp: NO MATCH
+
+TELEMETRY COVERAGE FINDING
+WIN10 Internet traffic uses NAT source 10.0.2.3.
+Zeek/Suricata passive monitoring is attached to the Host-Only sensor path.
+Therefore, some Internet-bound NAT traffic may not be visible to passive network sensors.
+Sysmon Event IDs 3 and 22 provide compensating endpoint-side network/DNS visibility.
+
+FALSE-MATCH LESSONS
+1. IOC strings in analyst grep commands can become searchable SIEM telemetry.
+2. Presence of WMIC alone is not evidence of malicious discovery; command line and parent context matter.
+3. PowerShell Script Block Logging can capture the analyst's own hunting regex.
+4. Time-based hunt cutoffs help separate pre-existing activity from investigation-generated telemetry.
+
+MITRE
+T1614.001 — System Language Discovery
+External sandbox behavior reported; no supported matching command/script behavior identified internally.
+
+FINAL THREAT ASSESSMENT
+MALICIOUS — high-confidence RemcosRAT classification based on multiple public threat-intelligence and sandbox sources.
+
+FINAL INTERNAL EXPOSURE ASSESSMENT
+No matching indicators or supported behavioral evidence associated with the investigated Remcos sample were identified in the available retained telemetry and endpoint locations searched.
+
+SCOPE LIMITATION
+This does NOT prove the endpoint has never been exposed or is malware-free. Results are bounded by telemetry retention, sensor placement, searched fields/paths, filename assumptions, and endpoint instrumentation.
+
+DISPOSITION
+Closed — No Matching Evidence Found within searched scope.
+Detection-engineering follow-up: review passive visibility for WIN10 Internet/NAT traffic.
+
+SOURCES
+MalwareBazaar: https://bazaar.abuse.ch/sample/265c2e716b5d9295923b9787b7d80f01054407753ae342dedce57233af8f18de/
+ThreatFox: https://threatfox.abuse.ch/ioc/1901218/
+MITRE T1614.001: https://attack.mitre.org/techniques/T1614/001/
+MITRE DET0565: https://attack.mitre.org/detectionstrategies/DET0565/

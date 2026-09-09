@@ -787,6 +787,106 @@ cases/case-100155-account-lockout-after-password-guessing.txt
 
 ---
 
+## 12 — Malware Reputation, Sandbox Analysis & IOC Hunting
+
+**Status:** Validated
+**Scope:** Threat intelligence-led retrospective hunting using public malware reputation and sandbox reports. No real malware was downloaded or executed in the lab.
+
+### Scenario
+
+A publicly reported RemcosRAT sample was selected as the external threat-intelligence reference:
+
+```text
+SHA256:
+265c2e716b5d9295923b9787b7d80f01054407753ae342dedce57233af8f18de
+
+Associated indicators investigated:
+208.64.33.69
+inspectormanna.duckdns.org
+TCP/2088
+```
+
+Public reputation and sandbox reporting were used to establish the external threat context. The investigation then searched the lab's retained endpoint, SIEM, and network telemetry for exact indicators and supported behaviors associated with the sample.
+
+### Investigation Workflow
+
+```text
+Public malware reputation
+          ↓
+Public sandbox behavior analysis
+          ↓
+IOC extraction and validation
+          ↓
+Retrospective IOC hunting
+          ↓
+Behavior-based hunting
+          ↓
+False-positive validation
+          ↓
+Telemetry coverage assessment
+          ↓
+SOC analyst conclusion
+```
+
+### Telemetry
+
+- Sysmon Event ID 1 — Process Creation
+- Sysmon Event ID 3 — Network Connection
+- Sysmon Event ID 11 — File Creation
+- Sysmon Event ID 22 — DNS Query
+- PowerShell Event ID 4104 — Script Block Logging
+- Wazuh current and retained alert telemetry
+- Zeek `dns.log` and `conn.log`
+- Suricata `eve.json` and retained EVE telemetry
+- Windows filesystem checks
+
+### Key Findings
+
+- No execution event matching the exact sample SHA256 was identified in the retained Sysmon Event ID 1 telemetry searched.
+- No file-creation event matching the sample filename was identified in the retained Sysmon Event ID 11 telemetry searched.
+- No matching sample filename was found in the endpoint locations searched.
+- No matching communication with `208.64.33.69`, TCP/2088, or `inspectormanna.duckdns.org` was identified in the available retained telemetry searched.
+- Broader hunting for `*.duckdns.org` and outbound TCP/2088 also produced no matching evidence.
+- Command/script-based hunting for System Language Discovery produced no supported pre-hunt match.
+- Several initial textual matches were determined to be analyst-generated or benign after contextual validation.
+- The investigation identified a monitoring limitation: Internet traffic leaving the WIN10 NAT interface may not cross the Host-Only segment monitored by Suricata and Zeek. Sysmon Event ID 3 provides complementary endpoint visibility for those connections.
+
+### False-Positive Validation
+
+Three important false matches were investigated rather than treated as compromise evidence:
+
+1. Wazuh contained IOC strings from the analyst's own `sudo grep` commands.
+2. `wmic.exe` executions were spawned by `wazuh-agent.exe` to query local account state, not system language.
+3. PowerShell Event ID 4104 recorded the analyst's own hunting regex containing terms such as `Get-Culture` and `Get-WinSystemLocale`.
+
+This demonstrates that a textual IOC, tool name, or keyword match is not sufficient by itself; event context must be validated.
+
+### MITRE ATT&CK
+
+- `T1614.001` — System Language Discovery
+
+This mapping reflects behavior reported by the external sandbox analysis. The lab investigation did **not** identify supported evidence that this technique occurred on WIN10.
+
+### Analyst Assessment
+
+**External threat assessment:** MALICIOUS — high-confidence RemcosRAT classification based on multiple public reputation and sandbox sources.
+
+**Internal exposure assessment:** No matching indicators or supported behavioral evidence associated with the investigated sample were identified in the available retained telemetry and endpoint locations searched.
+
+This conclusion is intentionally scoped. It does not prove that the endpoint was historically free of Remcos or any renamed/modified variant; it states only what the searched telemetry and endpoint locations support.
+
+### Evidence
+
+```text
+portfolio/12-malware-reputation-sandbox-ioc-hunting.md
+tickets/SOC-012-malware-reputation-ioc-hunting.md
+evidence/case12-evidence-summary.txt
+malware/case12/case12-reputation-sandbox-ioc-hunting.md
+malware/case12/case12-ioc-behavior-matrix.csv
+```
+
+---
+
 # SOC Workflow Demonstrated
 
 The investigations in this repository follow a practical SOC workflow:
@@ -838,7 +938,13 @@ Recommend response / escalation
 | Incident Documentation | Validated |
 | Phishing Investigation | Validated |
 | Malware Triage | Validated |
-| Web Attack Investigation | Planned |
+| Web Attack Investigation | Validated |
+| Threat Intelligence Analysis | Validated |
+| Public Sandbox Report Analysis | Validated |
+| IOC Hunting | Validated |
+| Behavior-Based Threat Hunting | Validated |
+| False-Positive Context Validation | Validated |
+| Telemetry Coverage Analysis | Validated |
 
 ---
 
@@ -863,6 +969,9 @@ Recommend response / escalation
 - Bash
 - PowerShell
 - VirusTotal
+- MalwareBazaar
+- ThreatFox
+- Hatching Triage public reports
 - MITRE ATT&CK
 
 ## Infrastructure
@@ -880,28 +989,32 @@ For recruiters and SOC hiring managers, the recommended order is:
 
 ```text
 1. PORTFOLIO.md
-2. portfolio/05-web-attack-investigation.md
-3. portfolio/06-dns-endpoint-correlation.md
+2. portfolio/12-malware-reputation-sandbox-ioc-hunting.md
+3. portfolio/08-soc-alert-triage-escalation.md
 4. portfolio/07-post-compromise-endpoint-investigation.md
-5. portfolio/08-soc-alert-triage-escalation.md
-6. docs/tri-source-rdp-correlation.md
-7. cases/case-100210-tri-source-rdp-correlation.txt
-8. docs/process-tree-investigation.md
-9. docs/windows-authentication-monitoring.md
-10. docs/suricata-network-monitoring.md
-11. docs/zeek-network-monitoring.md
+5. portfolio/06-dns-endpoint-correlation.md
+6. portfolio/05-web-attack-investigation.md
+7. docs/tri-source-rdp-correlation.md
+8. cases/case-100210-tri-source-rdp-correlation.txt
+9. docs/process-tree-investigation.md
+10. docs/windows-authentication-monitoring.md
+11. docs/suricata-network-monitoring.md
+12. docs/zeek-network-monitoring.md
 ```
 
 The full `README.md` contains the detailed technical build and implementation history.
 
 ---
+
 # Current Focus
 
 The next portfolio scenarios are intentionally aligned with common SOC N1/N2 responsibilities:
 
-1. Expand malware triage with reputation and sandbox analysis
-2. Develop threat-hunting queries and timeline reconstruction
-3. Add additional investigation scenarios focused on lateral movement and privilege escalation
+1. Build reusable Wazuh hunting queries for IOC and behavior-based investigations
+2. Add lateral movement and credential-access investigation scenarios
+3. Improve visibility for VM Internet traffic beyond the monitored Host-Only segment
+4. Expand endpoint detections for post-compromise behavior and privilege escalation
+
 ---
 
 # Repository
