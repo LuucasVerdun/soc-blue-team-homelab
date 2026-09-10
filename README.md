@@ -15,10 +15,10 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 ### Investigações em destaque
 
 - **[Case 01 — Tri-Source RDP Correlation](portfolio/01-tri-source-rdp-correlation.md)**
-  Suricata + Zeek + Windows Security Events + Wazuh, com correlação final Level 15.
+  Correlação de Windows Security Events, Suricata e Zeek para reconstruir tentativas de autenticação RDP e validar uma cadeia multi-source no Wazuh.
 
 - **[Case 02 — PowerShell and Discovery Activity](portfolio/02-powershell-discovery.md)**
-  Sysmon, PowerShell, análise de processos, comandos de discovery e MITRE ATT&CK.
+  Sysmon, PowerShell, análise de processos, comandos de discovery e mapeamento MITRE ATT&CK.
 
 - **[Case 03 — Phishing Email Investigation](portfolio/03-phishing-investigation.md)**
   Análise de headers, SPF/DKIM/DMARC, domínio lookalike, URL, attachment, IOCs e decisão de escalonamento.
@@ -38,10 +38,22 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 08 — SOC Alert Triage and Escalation](portfolio/08-soc-alert-triage-escalation.md)**
   Investigação de transferência HTTP via PowerShell com Suricata, Zeek, Sysmon e Wazuh, correlação multi-source Level 13, validação SHA256 e decisão de escalonamento SOC N1 → N2 sem sobreafirmar malware ou comprometimento.
 
+- **[Case 09 — Windows Password Guessing](cases/case-100140-password-guessing.txt)**
+  Detecção de múltiplas falhas de autenticação, correlação por usuário/IP e análise de tentativa de password guessing.
+
+- **[Case 10 — Successful Logon After Password Guessing](cases/case-100150-success-after-password-guessing.txt)**
+  Correlação entre sequência de falhas de autenticação e logon bem-sucedido subsequente.
+
+- **[Case 11 — Account Lockout After Password Guessing](cases/case-100155-account-lockout-after-password-guessing.txt)**
+  Correlação entre password guessing e bloqueio de conta com Windows Event ID 4740.
+
 - **[Case 12 — Malware Reputation, Sandbox Analysis & IOC Hunting](portfolio/12-malware-reputation-sandbox-ioc-hunting.md)**
   Análise de reputação e sandbox de uma amostra RemcosRAT publicamente reportada, validação de IOCs, retrospective hunting em Sysmon, Wazuh, Suricata e Zeek, hunting comportamental, análise de falsos positivos e identificação de limitações de telemetria — sem baixar ou executar malware real no laboratório.
 
-**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, malware triage, threat intelligence, public sandbox analysis, IOC extraction and validation, retrospective threat hunting, behavior-based hunting, false-positive validation, telemetry coverage analysis, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
+- **[Case 13 — Lateral Movement Investigation & Detection Engineering](portfolio/13-lateral-movement-investigation-detection-engineering.md)**
+  Investigação de movimento lateral via SMB/ADMIN$, criação e execução de serviço remoto, Sysmon, Zeek DCE/RPC, Suricata e Wazuh, culminando em correlação multi-source Level 15.
+
+**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, password guessing analysis, successful-logon correlation, account lockout correlation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, malware triage, threat intelligence, public sandbox analysis, IOC extraction and validation, retrospective threat hunting, behavior-based hunting, false-positive validation, telemetry coverage analysis, lateral movement investigation, SMB/Admin Share analysis, Windows Service execution analysis, DCE/RPC service-control analysis, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
 
 ---
 
