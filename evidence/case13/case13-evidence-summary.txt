@@ -1,0 +1,206 @@
+CASE 13 — LATERAL MOVEMENT INVESTIGATION & DETECTION ENGINEERING
+================================================================
+
+STATUS
+------
+Technical validation: COMPLETE
+Detection engineering: COMPLETE
+Final correlated alert: VALIDATED
+Cleanup: COMPLETE
+
+SCENARIO
+--------
+Controlled lateral-movement simulation from WIN10 to WINSERVER2022 using an existing authenticated SMB session, ADMIN$ file transfer, Windows Service Control Manager over DCE/RPC, a temporary service, and a benign marker file.
+
+No malware was downloaded or executed.
+
+FINAL CONTROLLED RUN
+--------------------
+Token: 20260910-030053
+Source: WIN10 / 192.168.100.20
+Destination: WINSERVER2022 / 192.168.100.30
+SMB flow: 192.168.100.20:50227 -> 192.168.100.30:445
+Service: SOC_CASE13_20260910030053
+Script: C:\Windows\Temp\case13-remote-20260910-030053.cmd
+Marker: C:\Users\Public\case13-marker-20260910-030053.txt
+Marker content: CASE13-LATERAL-MOVEMENT-20260910-030053
+Script size observed by Zeek: 108 bytes
+MD5: 9d79fc5a701bd99948b09395f327b253
+SHA1: 6582351f029f0b52ea7cdd79c6f0bc5abf134ca2
+SHA256: 59e00e12fcc3249fcf9b0b4e71ae2b232af38ac3e8967a58e531cdf53367409d
+
+The WINSERVER2022 copy produced the same SHA256. A second supplied hash output showed the server path again, so the retained evidence should not be presented as an independently captured final-run WIN10 source hash.
+
+AUTHENTICATION / SESSION CONTEXT
+--------------------------------
+Earlier Windows Security Event ID 4624:
+- Logon Type: 3
+- Account: WIN-30JS3HVHMAB\Administrator
+- Workstation: WIN10
+- Source: 192.168.100.20:50227
+- Authentication: NTLM / NTLM V2
+- Logon ID: 0x2C5437
+
+The SMB session remained open and was reused by later runs. The final run therefore did not require a new 4624 event.
+
+WINDOWS SECURITY
+----------------
+Event ID 5145 in final run:
+- Source Address: 192.168.100.20
+- Source Port: 50227
+- Share Name: \\*\ADMIN$
+- Share Path: \??\C:\Windows
+- Relative Target: Temp\case13-remote-20260910-030053.cmd
+- Access Mask: 0x2
+- Access: WriteData (or AddFile)
+- Account: Administrator
+- Logon ID: 0x2C5437
+
+Custom Wazuh 100260: Level 8, T1021.002.
+
+WINDOWS SERVICE
+---------------
+Event ID 7045:
+- Service: SOC_CASE13_20260910030053
+- Image: cmd.exe /c C:\Windows\Temp\case13-remote-20260910-030053.cmd
+- Start type: demand start
+- Account: LocalSystem
+- SCM PID: 612
+
+Native Wazuh 61138: New Windows Service Created, Level 5, T1543.003.
+Custom correlation 100285: Level 13.
+
+SERVICE START ERROR
+-------------------
+sc.exe start returned error 1053 because cmd.exe is not a normal Windows service executable. Events 7009 and 7000 recorded the timeout/failure, but Sysmon and the marker proved the command executed.
+
+SYSMON EVENT 1
+--------------
+UtcTime: 2026-09-10 06:02:13.564
+ProcessGuid: {34dad77b-47e5-6aa2-6d02-000000001700}
+PID: 2476
+Image: C:\Windows\System32\cmd.exe
+CommandLine: cmd.exe /c C:\Windows\Temp\case13-remote-20260910-030053.cmd
+User: NT AUTHORITY\SYSTEM
+Integrity: System
+LogonId: 0x3E7
+ParentProcessId: 612
+ParentImage: not populated
+
+PID 612 was later identified live as services.exe. Treat this as complementary validation only.
+
+SYSMON EVENT 11
+---------------
+Same ProcessGuid and PID 2476 created:
+C:\Users\Public\case13-marker-20260910-030053.txt
+User: NT AUTHORITY\SYSTEM
+
+Custom Wazuh 100275: Level 8.
+
+ZEEK SMB
+--------
+UID: C2mN2qTkFJzCj9PTj
+FUID: FTs14p1ZkYJbJpWOr9
+Source: 192.168.100.20:50227
+Destination: 192.168.100.30:445
+Share: \\192.168.100.30\ADMIN$
+File: Temp\case13-remote-20260910-030053.cmd
+MIME: text/x-msdos-batch
+seen_bytes: 108
+missing_bytes: 0
+SHA256: 59e00e12fcc3249fcf9b0b4e71ae2b232af38ac3e8967a58e531cdf53367409d
+
+ZEEK DCE/RPC
+------------
+Same SMB UID and svcctl endpoint / \\pipe\\ntsvcs:
+- OpenSCManager2
+- CreateServiceW
+- OpenSCManager2
+- OpenServiceW
+- StartServiceW
+
+Final-run timestamps:
+1789020107.669396 OpenSCManager2
+1789020107.675325 CreateServiceW
+1789020133.446116 OpenSCManager2
+1789020133.448370 OpenServiceW
+1789020133.449778 StartServiceW
+
+SURICATA
+--------
+Flow: 192.168.100.20:50227 -> 192.168.100.30:445/TCP
+Interface: enp0s9
+Signature ID: 2027175 rev 2
+Signature: ET INFO Command Shell Activity Over SMB - Possible Lateral Movement
+Category: Potentially Bad Traffic
+Severity: 2
+Final-run alerts around 2026-09-10T06:01:47.675325Z and 06:01:47.696873Z.
+
+WAZUH CUSTOM DETECTION CHAIN
+----------------------------
+100260 Level 8  — ADMIN$ controlled script write — T1021.002
+100265 Level 10 — controlled service creation — T1543.003
+100270 Level 12 — cmd.exe executing Case13 script as SYSTEM — T1059.003
+100275 Level 8  — execution marker created
+100280 Level 10 — Suricata SMB lateral-movement indication — T1021.002
+100285 Level 13 — ADMIN$ transfer followed by service creation — T1021.002/T1543.003
+100290 Level 15 — transfer + service creation + SYSTEM command execution — T1021.002/T1569.002/T1059.003
+100295 Level 15 — symmetric cross-agent branch, endpoint-first
+100300 Level 15 — symmetric cross-agent branch, network-first
+
+FINAL CORRELATED ALERT
+----------------------
+Rule: 100300
+Level: 15
+Timestamp: 2026-09-10T06:02:14.003Z
+Description: SOC LAB: Multi-source confirmation - Suricata SMB lateral-movement indication correlated with the confirmed Windows execution chain.
+Underlying event: Sysmon Event ID 1 for cmd.exe running the controlled script as SYSTEM.
+
+ATT&CK
+------
+T1021.002 — SMB/Windows Admin Shares
+T1543.003 — Windows Service
+T1569.002 — Service Execution
+T1059.003 — Windows Command Shell
+
+ANALYST VALIDATION
+------------------
+Native Wazuh rule 92657 described the earlier NTLM network logon as possible pass-the-hash and possible RDP. The actual context was authorized SMB/445, Logon Type 3, NTLM V2. Do not classify the case as Pass-the-Hash or RDP from that alert description.
+
+LIMITATIONS
+-----------
+1. Long-lived SMB session reused across tests.
+2. No fresh 4624 in final run.
+3. Sysmon Event 1 did not populate ParentImage.
+4. PID 612 -> services.exe was validated later, not recorded in Event 1.
+5. Suricata signature is supporting evidence, not standalone proof.
+6. Final-run WIN10 source-file hash was not independently retained in the supplied output.
+7. Authorized controlled simulation, not a real compromise.
+
+CLEANUP
+-------
+WINSERVER2022:
+- four SOC_CASE13_* services deleted
+- case13-remote-*.cmd removed
+- case13-marker-*.txt removed
+- baseline marker removed
+- verification returned no remaining matching services/files
+
+WIN10:
+- local case13-remote-*.cmd removed
+- IPC$ SMB session deleted
+- net use returned no entries
+
+Defensive controls retained:
+- Sysmon on WINSERVER2022
+- File Share / Detailed File Share auditing
+- 5145 collection
+- Sysmon channel collection in Wazuh
+- custom Wazuh rules 100260-100300
+
+SOC ASSESSMENT
+--------------
+Verdict: TRUE POSITIVE — CONTROLLED LAB SIMULATION
+Impact: benign by design.
+
+In production, ADMIN$ file transfer + remote service creation + StartServiceW + SYSTEM cmd.exe + IDS corroboration would justify high-priority investigation and containment review.

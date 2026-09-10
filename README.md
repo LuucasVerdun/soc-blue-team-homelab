@@ -2633,6 +2633,61 @@ Essa limitação foi considerada durante o Case 12 ao interpretar resultados neg
 
 ---
 
+# Case 13 — Lateral Movement Investigation & Detection Engineering
+
+O Case 13 validou uma cadeia controlada de movimento lateral entre `WIN10` (`192.168.100.20`) e `WINSERVER2022` (`192.168.100.30`) utilizando SMB, `ADMIN$` e Windows Service Control Manager.
+
+A cadeia investigada foi:
+
+```text
+WIN10
+  |
+  | SMB / ADMIN$
+  v
+WINSERVER2022
+  |
+  | 5145 — Remote File Write
+  | 7045 — Windows Service Creation
+  | Sysmon 1 — cmd.exe as SYSTEM
+  | Sysmon 11 — Execution Marker
+  v
+Wazuh
+  ^
+  |
+Suricata + Zeek
+```
+
+Telemetria correlacionada:
+
+- Windows Security Events `4624`, `5140` e `5145`;
+- Windows System Event `7045`;
+- Sysmon Event IDs `1` e `11`;
+- Zeek SMB, file analysis e DCE/RPC;
+- DCE/RPC `CreateServiceW` e `StartServiceW`;
+- Suricata SMB lateral-movement detection;
+- Wazuh custom rules `100260–100300`;
+- correlação final `100300`, Level 15.
+
+MITRE ATT&CK:
+
+- `T1021.002` — SMB/Windows Admin Shares;
+- `T1543.003` — Windows Service;
+- `T1569.002` — Service Execution;
+- `T1059.003` — Windows Command Shell.
+
+A investigação também demonstrou validação contextual de alertas: uma regra nativa sugeria possível Pass-the-Hash/RDP, mas a telemetria observada suportava uma sessão SMB Logon Type 3 com NTLM V2.
+
+Documentação:
+
+```text
+lateral-movement/case13/case13-lateral-movement-investigation.md
+evidence/case13/
+portfolio/13-lateral-movement-investigation-detection-engineering.md
+tickets/SOC-013-lateral-movement-detection-engineering.md
+```
+
+---
+
 # Current Detection Layers
 
 ```text
@@ -2684,6 +2739,10 @@ malware/case12/case12-ioc-behavior-matrix.csv
 evidence/case12-evidence-summary.txt
 portfolio/12-malware-reputation-sandbox-ioc-hunting.md
 tickets/SOC-012-malware-reputation-ioc-hunting.md
+lateral-movement/case13/case13-lateral-movement-investigation.md
+evidence/case13/case13-evidence-summary.txt
+portfolio/13-lateral-movement-investigation-detection-engineering.md
+tickets/SOC-013-lateral-movement-detection-engineering.md
 ```
 
 ---
@@ -2696,6 +2755,7 @@ docs/windows-authentication-monitoring.md
 docs/suricata-network-monitoring.md
 docs/zeek-network-monitoring.md
 docs/tri-source-rdp-correlation.md
+lateral-movement/case13/case13-lateral-movement-investigation.md
 ```
 
 ---
@@ -2708,7 +2768,7 @@ Com as investigações multi-source, triagem de malware, threat intelligence e r
 2. evoluir dashboards para separar endpoint, authentication, network e threat-hunting telemetry;
 3. ampliar a visibilidade do tráfego de Internet das VMs além do segmento Host-Only monitorado;
 4. expandir detecções Sysmon e Wazuh para comportamentos pós-comprometimento;
-5. adicionar novos cenários de lateral movement, credential access e endpoint investigation.
+5. expandir os próximos cenários para credential access, privilege escalation e identity-focused investigation.
 
 ---
 

@@ -887,6 +887,75 @@ malware/case12/case12-ioc-behavior-matrix.csv
 
 ---
 
+## 13 — Lateral Movement Investigation & Detection Engineering
+
+### Scenario
+
+A controlled lateral-movement simulation was performed from `WIN10` (`192.168.100.20`) to `WINSERVER2022` (`192.168.100.30`) using SMB administrative shares and Windows Service Control Manager operations.
+
+```text
+SMB / ADMIN$
+     ↓
+Remote File Transfer
+     ↓
+Windows Service Creation
+     ↓
+StartServiceW
+     ↓
+cmd.exe as SYSTEM
+     ↓
+Multi-Source Correlation
+```
+
+### Telemetry
+
+- Windows Security Events `4624`, `5140`, `5145`
+- Windows System Event `7045`
+- Sysmon Event IDs `1` and `11`
+- Zeek SMB and DCE/RPC
+- Suricata
+- Wazuh
+
+### Key Findings
+
+- `ADMIN$` file write was confirmed from `192.168.100.20`.
+- Zeek observed and hashed the transferred 108-byte batch file.
+- Event ID `7045` confirmed remote service creation.
+- Zeek observed `CreateServiceW` and `StartServiceW`.
+- Sysmon confirmed `cmd.exe` execution as `NT AUTHORITY\SYSTEM`.
+- The same Sysmon ProcessGuid/PID created the controlled execution marker.
+- Suricata corroborated command-shell activity over SMB.
+- Wazuh produced a Level 15 multi-source correlation through rule `100300`.
+- A native Pass-the-Hash/RDP suggestion was rejected after validating the actual SMB/NTLMv2 context.
+
+### MITRE ATT&CK
+
+- `T1021.002` — SMB/Windows Admin Shares
+- `T1543.003` — Windows Service
+- `T1569.002` — Service Execution
+- `T1059.003` — Windows Command Shell
+
+### Analyst Conclusion
+
+**True Positive — Controlled Lab Simulation**
+
+In a production environment, the combination of administrative-share transfer, remote service creation, SYSTEM-level command execution, and IDS corroboration would justify a high-priority investigation.
+
+### Evidence
+
+```text
+portfolio/13-lateral-movement-investigation-detection-engineering.md
+tickets/SOC-013-lateral-movement-detection-engineering.md
+lateral-movement/case13/case13-lateral-movement-investigation.md
+evidence/case13/case13-evidence-summary.txt
+evidence/case13/case13-final-100300.json
+evidence/case13/case13-zeek-smb.txt
+evidence/case13/case13-zeek-dcerpc.json
+evidence/case13/case13-suricata-alerts.json
+```
+
+---
+
 # SOC Workflow Demonstrated
 
 The investigations in this repository follow a practical SOC workflow:
@@ -945,6 +1014,11 @@ Recommend response / escalation
 | Behavior-Based Threat Hunting | Validated |
 | False-Positive Context Validation | Validated |
 | Telemetry Coverage Analysis | Validated |
+| SMB / Administrative Share Investigation | Validated |
+| Windows Service Execution Analysis | Validated |
+| Lateral Movement Investigation | Validated |
+| DCE/RPC Service Control Analysis | Validated |
+| Cross-Agent Multi-Source Correlation | Validated |
 
 ---
 
@@ -988,18 +1062,20 @@ Recommend response / escalation
 For recruiters and SOC hiring managers, the recommended order is:
 
 ```text
+
 1. PORTFOLIO.md
-2. portfolio/12-malware-reputation-sandbox-ioc-hunting.md
-3. portfolio/08-soc-alert-triage-escalation.md
-4. portfolio/07-post-compromise-endpoint-investigation.md
-5. portfolio/06-dns-endpoint-correlation.md
-6. portfolio/05-web-attack-investigation.md
-7. docs/tri-source-rdp-correlation.md
-8. cases/case-100210-tri-source-rdp-correlation.txt
-9. docs/process-tree-investigation.md
-10. docs/windows-authentication-monitoring.md
-11. docs/suricata-network-monitoring.md
-12. docs/zeek-network-monitoring.md
+2. portfolio/13-lateral-movement-investigation-detection-engineering.md
+3. portfolio/12-malware-reputation-sandbox-ioc-hunting.md
+4. portfolio/08-soc-alert-triage-escalation.md
+5. portfolio/07-post-compromise-endpoint-investigation.md
+6. portfolio/06-dns-endpoint-correlation.md
+7. portfolio/05-web-attack-investigation.md
+8. docs/tri-source-rdp-correlation.md
+9. cases/case-100210-tri-source-rdp-correlation.txt
+10. docs/process-tree-investigation.md
+11. docs/windows-authentication-monitoring.md
+12. docs/suricata-network-monitoring.md
+13. docs/zeek-network-monitoring.md
 ```
 
 The full `README.md` contains the detailed technical build and implementation history.
@@ -1011,7 +1087,7 @@ The full `README.md` contains the detailed technical build and implementation hi
 The next portfolio scenarios are intentionally aligned with common SOC N1/N2 responsibilities:
 
 1. Build reusable Wazuh hunting queries for IOC and behavior-based investigations
-2. Add lateral movement and credential-access investigation scenarios
+2. Add credential-access, privilege-escalation, and identity-focused investigation scenarios
 3. Improve visibility for VM Internet traffic beyond the monitored Host-Only segment
 4. Expand endpoint detections for post-compromise behavior and privilege escalation
 
@@ -1028,4 +1104,3 @@ https://github.com/LuucasVerdun/soc-blue-team-homelab
 # Disclaimer
 
 All activity documented in this repository was performed in a controlled and authorized lab environment for defensive cybersecurity training, detection engineering, threat hunting, and SOC practice.
-

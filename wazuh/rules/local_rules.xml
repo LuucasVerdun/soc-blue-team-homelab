@@ -435,4 +435,161 @@
     <group>correlation,multi_source,suricata,sysmon,http,file_transfer,endpoint_detection,soc_lab,</group>
   </rule>
 
+    <!-- CASE 13 - SMB administrative-share file write -->
+  <rule id="100260" level="8">
+    <if_sid>60103</if_sid>
+
+    <field name="win.system.eventID">^5145$</field>
+    <field name="win.eventdata.ipAddress">^192\.168\.100\.20$</field>
+    <field name="win.eventdata.shareName" type="pcre2">(?i)ADMIN\$$</field>
+    <field name="win.eventdata.relativeTargetName" type="pcre2">(?i)case13-remote-[0-9]{8}-[0-9]{6}\.cmd$</field>
+    <field name="win.eventdata.accessMask">^0x2$</field>
+
+    <description>SOC LAB: WIN10 wrote the controlled Case13 script through the ADMIN$ administrative share.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+    </mitre>
+
+    <group>windows,smb,admin_share,file_transfer,lateral_movement,soc_lab,</group>
+  </rule>
+
+    <!-- CASE 13 - controlled Windows service creation -->
+  <rule id="100265" level="10">
+    <if_sid>61138</if_sid>
+
+    <field name="win.eventdata.serviceName" type="pcre2">^SOC_CASE13_[0-9]{14}$</field>
+    <field name="win.eventdata.imagePath" type="pcre2">(?i)case13-remote-[0-9]{8}-[0-9]{6}\.cmd$</field>
+    <field name="win.eventdata.accountName">^LocalSystem$</field>
+
+    <description>SOC LAB: Controlled Case13 Windows service created to launch a command script as LocalSystem.</description>
+
+    <mitre>
+      <id>T1543.003</id>
+    </mitre>
+
+    <group>windows,service_creation,remote_service,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 13 - controlled command execution as SYSTEM -->
+  <rule id="100270" level="12">
+    <if_sid>61603</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)cmd\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)case13-remote-[0-9]{8}-[0-9]{6}\.cmd$</field>
+    <field name="win.eventdata.user" type="pcre2">(?i)SYSTEM$</field>
+
+    <description>SOC LAB: Controlled Case13 command script executed by cmd.exe as SYSTEM.</description>
+
+    <mitre>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>sysmon,process_creation,windows_command_shell,execution,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 13 - controlled execution marker -->
+  <rule id="100275" level="8">
+    <if_sid>61613</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)cmd\.exe$</field>
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)case13-marker-[0-9]{8}-[0-9]{6}\.txt$</field>
+    <field name="win.eventdata.user" type="pcre2">(?i)SYSTEM$</field>
+
+    <description>SOC LAB: Controlled Case13 execution marker created by cmd.exe as SYSTEM.</description>
+
+    <group>sysmon,file_create,execution_artifact,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 13 - Suricata lateral movement indication -->
+  <rule id="100280" level="10">
+    <if_sid>86601</if_sid>
+
+    <field name="alert.signature" type="pcre2">(?i)^ET INFO Command Shell Activity Over SMB - Possible Lateral Movement$</field>
+    <field name="src_ip">^192\.168\.100\.20$</field>
+    <field name="dest_ip">^192\.168\.100\.30$</field>
+    <field name="dest_port">^445$</field>
+
+    <description>SOC LAB: Suricata detected command shell activity over SMB from WIN10 to WINSERVER2022.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+    </mitre>
+
+    <group>suricata,smb,network_detection,lateral_movement,soc_lab,</group>
+  </rule>
+
+    <!-- CASE 13 - ADMIN$ transfer followed by remote service creation -->
+  <rule id="100285" level="13" timeframe="120">
+    <if_sid>100265</if_sid>
+    <if_matched_sid>100260</if_matched_sid>
+
+    <description>SOC LAB: Case13 SMB administrative-share transfer was followed by controlled remote service creation.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1543.003</id>
+    </mitre>
+
+    <group>correlation,windows,smb,admin_share,remote_service,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 13 - remote-service chain followed by SYSTEM command execution -->
+  <rule id="100290" level="15" timeframe="120">
+    <if_sid>100270</if_sid>
+    <if_matched_sid>100285</if_matched_sid>
+
+    <description>SOC LAB: Confirmed Case13 lateral movement chain - SMB transfer and remote service creation followed by command execution as SYSTEM.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1569.002</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>correlation,endpoint,windows,smb,service_execution,windows_command_shell,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- Network evidence arrived after endpoint correlation -->
+  <rule id="100295" level="15" timeframe="120">
+    <if_sid>100280</if_sid>
+    <if_matched_sid>100290</if_matched_sid>
+
+    <global_frequency />
+
+    <description>SOC LAB: Multi-source confirmation - correlated Windows lateral movement chain also detected by Suricata over SMB.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1569.002</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>correlation,multi_source,suricata,windows,sysmon,smb,service_execution,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- Network evidence arrived before endpoint correlation -->
+  <rule id="100300" level="15" timeframe="120">
+    <if_sid>100290</if_sid>
+    <if_matched_sid>100280</if_matched_sid>
+
+    <global_frequency />
+
+    <description>SOC LAB: Multi-source confirmation - Suricata SMB lateral-movement indication correlated with the confirmed Windows execution chain.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1569.002</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>correlation,multi_source,suricata,windows,sysmon,smb,service_execution,lateral_movement,soc_lab,</group>
+  </rule>
+
 </group>
