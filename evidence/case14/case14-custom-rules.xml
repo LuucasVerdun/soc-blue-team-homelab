@@ -1,0 +1,41 @@
+    <!-- CASE 14 - controlled PowerShell Add-Type compilation -->
+  <rule id="100310" level="8">
+    <if_sid>92006</if_sid>
+
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)\\powershell\.exe$</field>
+    <field name="win.eventdata.parentCommandLine" type="pcre2">(?i)case14-lsass-access-[0-9]{8}-[0-9]{6}\.ps1</field>
+
+    <description>SOC LAB: Controlled Case14 PowerShell Add-Type compilation observed before LSASS access.</description>
+
+    <group>sysmon,process_creation,powershell,csc,case14,soc_lab,</group>
+  </rule>
+
+    <!-- CASE 14 - controlled read-capable LSASS handle -->
+  <rule id="100315" level="13">
+    <if_sid>92900</if_sid>
+
+    <field name="win.eventdata.sourceImage" type="pcre2">(?i)\\powershell\.exe$</field>
+    <field name="win.eventdata.targetImage" type="pcre2">(?i)\\lsass\.exe$</field>
+    <field name="win.eventdata.grantedAccess">^0x1010$</field>
+
+    <description>SOC LAB: Controlled Case14 PowerShell process obtained a read-capable handle to LSASS.</description>
+
+    <group>sysmon,process_access,lsass,credential_access_investigation,case14,soc_lab,</group>
+  </rule>
+
+    <!-- CASE 14 - process creation followed by LSASS access -->
+  <rule id="100320" level="15" timeframe="60">
+    <if_sid>100315</if_sid>
+    <if_matched_sid>100310</if_matched_sid>
+
+    <description>SOC LAB: Controlled Case14 PowerShell execution was followed by read-capable LSASS process access.</description>
+
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+
+    <group>correlation,sysmon,powershell,lsass,credential_access_investigation,case14,soc_lab,</group>
+  </rule>
+
+
+</group>
