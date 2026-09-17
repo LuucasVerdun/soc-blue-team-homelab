@@ -1064,19 +1064,20 @@ For recruiters and SOC hiring managers, the recommended order is:
 ```text
 
 1. PORTFOLIO.md
-2. portfolio/14-credential-access-investigation-lsass-access-detection.md
-3. portfolio/13-lateral-movement-investigation-detection-engineering.md
-4. portfolio/12-malware-reputation-sandbox-ioc-hunting.md
-5. portfolio/08-soc-alert-triage-escalation.md
-6. portfolio/07-post-compromise-endpoint-investigation.md
-7. portfolio/06-dns-endpoint-correlation.md
-8. portfolio/05-web-attack-investigation.md
-9. docs/tri-source-rdp-correlation.md
-10. cases/case-100210-tri-source-rdp-correlation.txt
-11. docs/process-tree-investigation.md
-12. docs/windows-authentication-monitoring.md
-13. docs/suricata-network-monitoring.md
-14. docs/zeek-network-monitoring.md
+2. portfolio/15-windows-service-misconfiguration-privilege-escalation.md
+3. portfolio/14-credential-access-investigation-lsass-access-detection.md
+4. portfolio/13-lateral-movement-investigation-detection-engineering.md
+5. portfolio/12-malware-reputation-sandbox-ioc-hunting.md
+6. portfolio/08-soc-alert-triage-escalation.md
+7. portfolio/07-post-compromise-endpoint-investigation.md
+8. portfolio/06-dns-endpoint-correlation.md
+9. portfolio/05-web-attack-investigation.md
+10. docs/tri-source-rdp-correlation.md
+11. cases/case-100210-tri-source-rdp-correlation.txt
+12. docs/process-tree-investigation.md
+13. docs/windows-authentication-monitoring.md
+14. docs/suricata-network-monitoring.md
+15. docs/zeek-network-monitoring.md
 ```
 
 The full `README.md` contains the detailed technical build and implementation history.
@@ -1088,9 +1089,9 @@ The full `README.md` contains the detailed technical build and implementation hi
 The next portfolio scenarios are intentionally aligned with common SOC N1/N2 responsibilities:
 
 1. Build reusable Wazuh hunting queries for IOC and behavior-based investigations
-2. Add privilege-escalation and identity-focused investigation scenarios
+2. Add identity-focused investigation scenarios and account-abuse detection
 3. Improve visibility for VM Internet traffic beyond the monitored Host-Only segment
-4. Expand endpoint detections for post-compromise behavior and privilege escalation
+4. Expand endpoint detections for post-compromise behavior and identity abuse
 
 ---
 

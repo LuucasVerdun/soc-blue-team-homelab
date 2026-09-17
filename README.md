@@ -56,6 +56,9 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 14 — Credential Access Investigation & LSASS Access Detection](portfolio/14-credential-access-investigation-lsass-access-detection.md)**
   Investigação de acesso ao LSASS com Sysmon Event ID 10, baseline de acessos legítimos, análise de GrantedAccess, validação de alertas nativos do Wazuh e correlação customizada Level 15 sem realizar credential dumping.
 
+- **[Case 15 — Windows Service Misconfiguration Privilege Escalation Investigation & Detection Engineering](portfolio/15-windows-service-misconfiguration-privilege-escalation.md)**
+  Investigação de permissões inadequadas em serviço Windows, alteração controlada de ImagePath por usuário padrão, inicialização do serviço como LocalSystem, validação com Sysmon e correlação customizada Wazuh até Level 15.
+
 **Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, password guessing analysis, successful-logon correlation, account lockout correlation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, malware triage, threat intelligence, public sandbox analysis, IOC extraction and validation, retrospective threat hunting, behavior-based hunting, false-positive validation, telemetry coverage analysis, lateral movement investigation, LSASS access investigation, Sysmon ProcessAccess analysis, credential-access detection engineering, SMB/Admin Share analysis, Windows Service execution analysis, DCE/RPC service-control analysis, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
 
 ---
