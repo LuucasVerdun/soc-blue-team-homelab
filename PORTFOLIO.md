@@ -971,25 +971,41 @@ UAC consent, and observed executing High Integrity processes.
 ### Detection Chain
 
 ```text
+Direct final Wazuh dependency:
+
 4720 account creation
-      ↓
+      |
+      v
 100365
-      ↓
+      |
 4732 Administrators assignment
-      ↓
+      |
+      v
+100370
+      |
+      + previous 100365
+      v
 100375 / Level 13
-      ↓
-4624 elevated token
-      ↓
-100380
-      ↓
-4672 special privileges
-      ↓
-100385
-      ↓
+      |
+      | previous create/promote context
+      |
 Sysmon Event 1 / High Integrity
-      ↓
+      |
+      v
+100390
+      |
+      + previous 100375
+      v
 100395 / Level 15
+
+Corroborative authentication/session branch:
+
+4624 elevated token -> 100380
+                         |
+4672 special privileges -> 100385
+
+Cross-source investigation then validates:
+4624.targetLogonId = 4672.subjectLogonId = Sysmon.logonId
 ```
 
 ### Key Findings
@@ -1008,8 +1024,8 @@ Sysmon Event 1 / High Integrity
 ### ATT&CK
 
 - `T1136.001` — Create Account: Local Account
-- `T1098` — Account Manipulation
-- `T1078` — Valid Accounts
+- `T1098` — Account Manipulation (Wazuh-compatible); current granular mapping: `T1098.007` — Additional Local or Domain Groups
+- `T1078` — Valid Accounts (Wazuh-compatible); current granular mapping for this local identity: `T1078.003` — Local Accounts
 
 ### Evidence
 
@@ -1085,6 +1101,13 @@ Recommend response / escalation
 | Lateral Movement Investigation | Validated |
 | DCE/RPC Service Control Analysis | Validated |
 | Cross-Agent Multi-Source Correlation | Validated |
+| Credential Access Investigation | Validated |
+| LSASS Process Access Analysis | Validated |
+| Privilege Escalation Investigation | Validated |
+| Windows Identity Abuse Investigation | Validated |
+| Local Account Lifecycle Analysis | Validated |
+| UAC Split-Token Analysis | Validated |
+| High Integrity Process Correlation | Validated |
 
 ---
 

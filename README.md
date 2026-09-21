@@ -59,7 +59,10 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 15 — Windows Service Misconfiguration Privilege Escalation Investigation & Detection Engineering](portfolio/15-windows-service-misconfiguration-privilege-escalation.md)**
   Investigação de permissões inadequadas em serviço Windows, alteração controlada de ImagePath por usuário padrão, inicialização do serviço como LocalSystem, validação com Sysmon e correlação customizada Wazuh até Level 15.
 
-**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, password guessing analysis, successful-logon correlation, account lockout correlation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, malware triage, threat intelligence, public sandbox analysis, IOC extraction and validation, retrospective threat hunting, behavior-based hunting, false-positive validation, telemetry coverage analysis, lateral movement investigation, LSASS access investigation, Sysmon ProcessAccess analysis, credential-access detection engineering, SMB/Admin Share analysis, Windows Service execution analysis, DCE/RPC service-control analysis, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation.
+- **[Case 16 — Windows Identity Abuse & Local Administrator Escalation](portfolio/16-windows-identity-abuse-local-administrator-escalation.md)**
+  Investigação de criação e uso de identidade local privilegiada, adição ao grupo Administrators, UAC split token, correlação de SID e Logon ID entre Events 4720/4732/4624/4672 e Sysmon Event ID 1, com detecção Wazuh final Level 15.
+
+**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, password guessing analysis, successful-logon correlation, account lockout correlation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, malware triage, threat intelligence, public sandbox analysis, IOC extraction and validation, retrospective threat hunting, behavior-based hunting, false-positive validation, telemetry coverage analysis, lateral movement investigation, LSASS access investigation, Sysmon ProcessAccess analysis, credential-access detection engineering, SMB/Admin Share analysis, Windows Service execution analysis, DCE/RPC service-control analysis, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation, Windows identity abuse investigation, SID/Logon ID correlation, UAC split-token analysis, local administrator privilege analysis.
 
 ---
 
@@ -2102,26 +2105,63 @@ wazuh/rules/local_rules.xml
 
 | Rule | Level | Detection | MITRE |
 |---|---:|---|---|
-| 100100 | 10 | PowerShell Script Block marker | T1059.001 |
-| 100110 | 8 | PowerShell spawning cmd.exe | T1059.003 |
-| 100120 | 10 | whoami discovery | T1033, T1059.003 |
-| 100130 | 12 | Multi-command discovery | T1033, T1016, T1087.001, T1059.003 |
-| 100135 | 6 | Wrong password for existing account | Authentication |
-| 100140 | 12 | Password guessing | T1110.001 |
-| 100145 | 4 | Successful network logon | T1078 |
-| 100150 | 14 | Successful logon after password guessing | T1078 |
-| 100155 | 13 | Account lockout after password guessing | T1110.001, T1531 |
-| 100160 | 5 | RDP connection received | T1021.001 |
-| 100165 | 7 | Failed authentication associated with RDP | T1021.001, T1110.001 |
-| 100170 | 12 | Repeated RDP authentication failures | T1021.001, T1110.001 |
-| 100175 | 14 | Successful RDP logon after password guessing | T1021.001, T1078.003 |
-| 100180 | 6 | Suricata RDP connection detection | T1021.001 |
-| 100185 | 8 | Suricata TCP port scan detection | T1046 |
-| 100190 | 5 | Zeek RDP connection metadata | T1021.001 |
-| 100195 | 7 | Zeek controlled suspicious DNS query | T1071.004 |
-| 100200 | 10 | Zeek DNS beacon-like correlation | T1071.004 |
-| 100205 | 15 | Reconnaissance followed by successful RDP after guessing | T1046, T1021.001, T1078.003 |
-| 100210 | 15 | Tri-source Suricata + Zeek + Windows correlation | T1046, T1110.001, T1021.001, T1078.003 |
+| 100100 | 10 | SOC LAB: PowerShell Script Block test detected. | T1059.001 |
+| 100110 | 8 | SOC LAB: PowerShell spawned CMD with High integrity. | T1059.003 |
+| 100120 | 10 | SOC LAB: High-integrity PowerShell spawned CMD and executed whoami. | T1033, T1059.003 |
+| 100130 | 12 | SOC LAB: Multiple Windows discovery commands executed from elevated PowerShell. | T1033, T1016, T1087.001, T1059.003 |
+| 100135 | 6 | SOC LAB: Windows logon failure caused by incorrect password for an existing account. | — |
+| 100140 | 12 | SOC LAB: Repeated password failures against the same Windows account from the same source IP. | T1110.001 |
+| 100145 | 4 | SOC LAB: Successful Windows network logon. | T1078 |
+| 100150 | 14 | SOC LAB: Successful Windows network logon after repeated password guessing attempts. | T1078 |
+| 100155 | 13 | SOC LAB: Windows account locked out after repeated password guessing attempts. | T1110.001, T1531 |
+| 100160 | 5 | SOC LAB: RDP connection received by Windows Remote Desktop listener. | T1021.001 |
+| 100165 | 7 | SOC LAB: Failed Windows authentication associated with a recent RDP connection. | T1021.001, T1110.001 |
+| 100170 | 12 | SOC LAB: Repeated RDP authentication failures against the same Windows account from the same source IP. | T1021.001, T1110.001 |
+| 100175 | 14 | SOC LAB: Successful RDP logon after repeated password guessing from the same source IP. | T1021.001, T1078.003 |
+| 100180 | 6 | SOC LAB: Suricata detected an RDP connection attempt from WIN10 to WINSERVER2022. | T1021.001 |
+| 100185 | 8 | SOC LAB: Suricata detected a possible TCP port scan against WINSERVER2022. | T1046 |
+| 100190 | 5 | SOC LAB: Zeek observed an RDP connection from WIN10 to WINSERVER2022. | T1021.001 |
+| 100195 | 7 | SOC LAB: Zeek detected a controlled suspicious DNS query from WIN10. | T1071.004 |
+| 100200 | 10 | SOC LAB: Repeated suspicious DNS queries from the same source may indicate beacon-like activity. | T1071.004 |
+| 100205 | 15 | SOC LAB: Network reconnaissance followed by successful RDP access after password guessing. | T1046, T1021.001, T1078.003 |
+| 100210 | 15 | SOC LAB: Tri-source correlation - Suricata reconnaissance, Zeek RDP network activity, and successful Windows RDP access after password guessing. | T1046, T1110.001, T1021.001, T1078.003 |
+| 100215 | 10 | SOC LAB: Suricata detected a possible HTTP command injection attempt against WINSERVER2022. | — |
+| 100220 | 8 | SOC LAB: Sysmon observed a controlled suspicious DNS query from $(win.eventdata.image). | — |
+| 100225 | 13 | SOC LAB: Multi-source correlation - repeated DNS activity observed by Zeek and attributed to an endpoint process by Sysmon. | — |
+| 100230 | 13 | SOC LAB: Discovery activity was followed by registration of the controlled scheduled task $(win.eventdata.taskName). | T1053.005 |
+| 100235 | 15 | SOC LAB: Correlated endpoint chain - discovery followed by scheduled task registration and task-driven command execution. | T1053.005, T1059.003 |
+| 100240 | 8 | SOC LAB: PowerShell created a controlled file - $(win.eventdata.targetFilename). | — |
+| 100245 | 7 | SOC LAB: Suricata observed the controlled HTTP file download from WIN10. | — |
+| 100250 | 13 | SOC LAB: Multi-source correlation - HTTP transfer observed by Suricata followed by PowerShell file creation on WIN10. | T1105 |
+| 100255 | 13 | SOC LAB: Multi-source correlation - PowerShell file creation on WIN10 correlated with an HTTP transfer observed by Suricata. | T1105 |
+| 100260 | 8 | SOC LAB: WIN10 wrote the controlled Case13 script through the ADMIN$ administrative share. | T1021.002 |
+| 100265 | 10 | SOC LAB: Controlled Case13 Windows service created to launch a command script as LocalSystem. | T1543.003 |
+| 100270 | 12 | SOC LAB: Controlled Case13 command script executed by cmd.exe as SYSTEM. | T1059.003 |
+| 100275 | 8 | SOC LAB: Controlled Case13 execution marker created by cmd.exe as SYSTEM. | — |
+| 100280 | 10 | SOC LAB: Suricata detected command shell activity over SMB from WIN10 to WINSERVER2022. | T1021.002 |
+| 100285 | 13 | SOC LAB: Case13 SMB administrative-share transfer was followed by controlled remote service creation. | T1021.002, T1543.003 |
+| 100290 | 15 | SOC LAB: Confirmed Case13 lateral movement chain - SMB transfer and remote service creation followed by command execution as SYSTEM. | T1021.002, T1569.002, T1059.003 |
+| 100295 | 15 | SOC LAB: Multi-source confirmation - correlated Windows lateral movement chain also detected by Suricata over SMB. | T1021.002, T1569.002, T1059.003 |
+| 100300 | 15 | SOC LAB: Multi-source confirmation - Suricata SMB lateral-movement indication correlated with the confirmed Windows execution chain. | T1021.002, T1569.002, T1059.003 |
+| 100310 | 8 | SOC LAB: Controlled Case14 PowerShell Add-Type compilation observed before LSASS access. | — |
+| 100315 | 13 | SOC LAB: Controlled Case14 PowerShell process obtained a read-capable handle to LSASS. | — |
+| 100320 | 15 | SOC LAB: Controlled Case14 PowerShell execution was followed by read-capable LSASS process access. | T1059.001 |
+| 100325 | 8 | SOC LAB: Standard user modified SOC_CASE15 service configuration to execute the controlled marker script. | T1543.003 |
+| 100330 | 10 | SOC LAB: SOC_CASE15 ImagePath was changed to the controlled Case15 marker command. | T1543.003 |
+| 100335 | 10 | SOC LAB: Standard user started the controlled SOC_CASE15 LocalSystem service. | T1569.002 |
+| 100340 | 12 | SOC LAB: Controlled Case15 service payload executed a child process as NT AUTHORITY SYSTEM. | T1569.002, T1059.003 |
+| 100345 | 12 | SOC LAB: NT AUTHORITY SYSTEM created the controlled Case15 privilege-escalation marker. | T1569.002 |
+| 100350 | 13 | SOC LAB: Standard-user service configuration change was followed by SOC_CASE15 ImagePath modification. | T1543.003 |
+| 100352 | 13 | SOC LAB: SOC_CASE15 Registry ImagePath modification correlated with the standard-user service configuration change. | T1543.003 |
+| 100355 | 14 | SOC LAB: Standard user started SOC_CASE15 after modifying its LocalSystem service configuration. | T1543.003, T1569.002 |
+| 100360 | 15 | SOC LAB: Case15 privilege-escalation chain confirmed - standard user modified and started a LocalSystem service followed by controlled SYSTEM execution. | T1543.003, T1569.002 |
+| 100365 | 8 | Case16: Controlled local account created: $(win.eventdata.targetUserName) | T1136.001 |
+| 100370 | 12 | Case16: Member added to local Administrators group: $(win.eventdata.memberSid) | T1098 |
+| 100375 | 13 | Case16: Recent controlled local account creation followed by local Administrators group assignment. | — |
+| 100380 | 10 | Case16: Controlled local account logged on with an elevated token: $(win.eventdata.targetUserName) - LogonId $(win.eventdata.targetLogonId) | T1078 |
+| 100385 | 12 | Case16: Elevated logon for controlled local account followed by special privileges - LogonId $(win.eventdata.subjectLogonId) | — |
+| 100390 | 12 | Case16: High-integrity process executed by controlled local account: $(win.eventdata.image) - PID $(win.eventdata.processId) - LogonId $(win.eventdata.logonId) | — |
+| 100395 | 15 | Case16: High-confidence identity escalation chain - recent controlled account creation and local Administrator assignment followed by High-integrity process execution. | — |
 
 ---
 
@@ -2250,19 +2290,25 @@ Authorized Security Test
 
 | Technique | Description | Detection |
 |---|---|---|
-| T1059.001 | PowerShell | 100100 |
-| T1059.003 | Windows Command Shell | 100110, 100120, 100130 |
-| T1033 | System Owner/User Discovery | 100120, 100130 |
 | T1016 | System Network Configuration Discovery | 100130 |
-| T1087.001 | Local Account Discovery | 100130 |
-| T1110 | Brute Force | 60204, 60115 |
-| T1110.001 | Password Guessing | 100140, 100155, 100165, 100170, 100210 |
-| T1531 | Account Access Removal | 100155 |
-| T1078 | Valid Accounts | 100145, 100150 |
-| T1078.003 | Local Accounts | 100175, 100205, 100210 |
 | T1021.001 | Remote Desktop Protocol | 100160, 100165, 100170, 100175, 100180, 100190, 100205, 100210 |
+| T1021.002 | SMB/Windows Admin Shares | 100260, 100280, 100285, 100290, 100295, 100300 |
+| T1033 | System Owner/User Discovery | 100120, 100130 |
 | T1046 | Network Service Discovery | 100185, 100205, 100210 |
-| T1071.004 | DNS | 100195, 100200 |
+| T1053.005 | Scheduled Task/Job: Scheduled Task | 100230, 100235 |
+| T1059.001 | PowerShell | 100100, 100320 |
+| T1059.003 | Windows Command Shell | 100110, 100120, 100130, 100235, 100270, 100290, 100295, 100300, 100340 |
+| T1071.004 | Application Layer Protocol: DNS | 100195, 100200 |
+| T1078 | Valid Accounts | 100145, 100150, 100380 |
+| T1078.003 | Valid Accounts: Local Accounts | 100175, 100205, 100210 |
+| T1087.001 | Account Discovery: Local Account | 100130 |
+| T1098 | Account Manipulation | 100370 |
+| T1105 | Ingress Tool Transfer | 100250, 100255 |
+| T1110.001 | Brute Force: Password Guessing | 100140, 100155, 100165, 100170, 100210 |
+| T1136.001 | Create Account: Local Account | 100365 |
+| T1531 | Account Access Removal | 100155 |
+| T1543.003 | Create or Modify System Process: Windows Service | 100265, 100285, 100325, 100330, 100350, 100352, 100355, 100360 |
+| T1569.002 | System Services: Service Execution | 100290, 100295, 100300, 100335, 100340, 100345, 100355, 100360 |
 
 ---
 
@@ -2716,28 +2762,47 @@ especiais e execução High Integrity.
 A correlação principal foi:
 
 ```text
+DIRECT FINAL DETECTION DEPENDENCY
+
 4720 — Local account created
   |
   v
 100365
   |
-  v
-4732 — Added to Administrators
-  |
-  v
-100375 / Level 13
-  |
-  v
-4624 — Elevated token
-  |
-  v
-4672 — Special privileges
-  |
-  v
+  +--> 4732 — Added to Administrators
+          |
+          v
+       100370
+          |
+          + previous 100365
+          v
+       100375 / Level 13
+          |
+          | previous create/promote context
+          |
 Sysmon Event 1 — High Integrity
   |
   v
+100390
+  |
+  + previous 100375
+  v
 100395 / Level 15
+
+CORROBORATIVE SESSION EVIDENCE
+
+4624 — Elevated token
+  |
+  v
+100380
+  |
+  +--> 4672 — Special privileges
+          |
+          v
+       100385
+
+Investigative correlation:
+4624.targetLogonId = 4672.subjectLogonId = Sysmon.logonId
 ```
 
 A validação também demonstrou:
@@ -2753,8 +2818,8 @@ A validação também demonstrou:
 MITRE ATT&CK:
 
 - `T1136.001` — Local Account
-- `T1098` — Account Manipulation
-- `T1078` — Valid Accounts
+- `T1098` — Account Manipulation (Wazuh-compatible); current granular mapping: `T1098.007` — Additional Local or Domain Groups
+- `T1078` — Valid Accounts (Wazuh-compatible); current granular mapping for this local identity: `T1078.003` — Local Accounts
 
 Documentação:
 
@@ -2822,6 +2887,14 @@ lateral-movement/case13/case13-lateral-movement-investigation.md
 evidence/case13/case13-evidence-summary.txt
 portfolio/13-lateral-movement-investigation-detection-engineering.md
 tickets/SOC-013-lateral-movement-detection-engineering.md
+credential-access/case14/case14-credential-access-lsass-investigation.md
+evidence/case14/summary.md
+portfolio/14-credential-access-investigation-lsass-access-detection.md
+tickets/SOC-014-credential-access-lsass-access-detection.md
+privilege-escalation/case15/case15-windows-service-misconfiguration-privilege-escalation.md
+evidence/case15/summary.md
+portfolio/15-windows-service-misconfiguration-privilege-escalation.md
+tickets/SOC-015-windows-service-misconfiguration-privilege-escalation.md
 privilege-escalation/case16/case16-windows-identity-abuse-local-administrator-escalation.md
 evidence/case16/summary.md
 portfolio/16-windows-identity-abuse-local-administrator-escalation.md
@@ -2851,7 +2924,7 @@ Com as investigações multi-source, triagem de malware, threat intelligence e r
 2. evoluir dashboards para separar endpoint, authentication, network e threat-hunting telemetry;
 3. ampliar a visibilidade do tráfego de Internet das VMs além do segmento Host-Only monitorado;
 4. expandir detecções Sysmon e Wazuh para comportamentos pós-comprometimento;
-5. expandir os próximos cenários para credential access, privilege escalation e identity-focused investigation.
+5. expandir identity-focused detection para cenários adicionais e transformar as detecções validadas em hunting queries e playbooks reutilizáveis.
 
 ---
 

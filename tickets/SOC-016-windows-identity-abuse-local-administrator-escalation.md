@@ -83,19 +83,34 @@ framework was involved.
 ## Detection Logic
 
 ```text
+Direct final correlation path:
+
 100365 — account creation
-   ↓
+   |
+   v
 100370 — Administrators membership
-   ↓
-100375 — create → promote correlation
-   ↓
-100380 — elevated-token logon
-   ↓
-100385 — special privileges
-   ↓
+   |
+   + previous 100365
+   v
+100375 — create -> promote correlation
+   |
+   | previous context
+   v
 100390 — High Integrity process
-   ↓
+   |
+   + previous 100375
+   v
 100395 — final Level 15 correlation
+
+Corroborative identity/session path:
+
+100380 — elevated-token logon
+   |
+   v
+100385 — elevated logon -> special privileges
+
+The corroborative branch is linked during investigation through Logon ID
+correlation; it is not a direct parent chain of rule 100395.
 ```
 
 The final rule directly correlates `100375` with `100390`. Rules `100380` and
@@ -130,6 +145,7 @@ Completed after evidence preservation:
 
 - `evidence/case16/wazuh-live-alerts.jsonl`
 - `evidence/case16/wazuh-live-chain.jsonl`
+- `evidence/case16/wazuh-supporting-events.jsonl`
 - `evidence/case16/case16-custom-rules.xml`
 - `evidence/case16/summary.md`
 - `evidence/case16/hashes.sha256`

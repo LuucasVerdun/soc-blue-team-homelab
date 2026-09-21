@@ -104,9 +104,7 @@ same elevated logon context.
 Positive and negative tests confirmed ordering behavior for the correlation
 rules.
 
-The live Wazuh pipeline produced:
-
-`100365 → 100375 → 100380 → 100385 → 100395`
+The live validation produced the chronological alerts `100365`, `100375`, `100380`, `100385`, and `100395`. This chronological sequence must not be interpreted as the direct Wazuh dependency graph: the final rule `100395` directly correlates `100375` with `100390`, while `100380` and `100385` provide corroborative authentication/session evidence.
 
 ## Final High-Confidence Alert
 

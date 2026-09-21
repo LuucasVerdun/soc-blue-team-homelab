@@ -783,5 +783,80 @@
     <group>correlation,system_execution,service_execution,privilege_escalation,case15,soc_lab,</group>
   </rule>
 
+  <!-- CASE 16 - Windows identity abuse & local administrator escalation -->
+  <rule id="100365" level="8">
+        <if_sid>60109</if_sid>
+        <field name="win.system.eventID">^4720$</field>
+        <field name="win.eventdata.targetUserName" type="pcre2">(?i)^soccase16$</field>
+        <description>Case16: Controlled local account created: $(win.eventdata.targetUserName)</description>
+        <group>case16,identity,account_creation,</group>
+        <mitre>
+          <id>T1136.001</id>
+        </mitre>
+      </rule>
+
+  <rule id="100370" level="12">
+        <if_sid>60154</if_sid>
+        <field name="win.system.eventID">^4732$</field>
+        <description>Case16: Member added to local Administrators group: $(win.eventdata.memberSid)</description>
+        <group>case16,identity,privilege_assignment,local_admin_group,</group>
+        <mitre>
+          <id>T1098</id>
+        </mitre>
+      </rule>
+
+  <rule id="100375" level="13" timeframe="1800">
+        <if_sid>100370</if_sid>
+        <if_matched_sid>100365</if_matched_sid>
+
+        <description>Case16: Recent controlled local account creation followed by local Administrators group assignment.</description>
+
+        <group>case16,correlation,identity,account_creation,privilege_assignment,local_admin_group,</group>
+      </rule>
+
+  <rule id="100380" level="10">
+        <if_sid>60118</if_sid>
+        <field name="win.eventdata.targetUserName" type="pcre2">(?i)^soccase16$</field>
+        <field name="win.eventdata.elevatedToken">^%%1842$</field>
+
+        <description>Case16: Controlled local account logged on with an elevated token: $(win.eventdata.targetUserName) - LogonId $(win.eventdata.targetLogonId)</description>
+
+        <group>case16,identity,authentication,privileged_logon,elevated_token,</group>
+
+        <mitre>
+          <id>T1078</id>
+        </mitre>
+      </rule>
+
+  <rule id="100385" level="12" timeframe="60">
+        <if_sid>67028</if_sid>
+        <if_matched_sid>100380</if_matched_sid>
+
+        <field name="win.eventdata.subjectUserName" type="pcre2">(?i)^soccase16$</field>
+
+        <description>Case16: Elevated logon for controlled local account followed by special privileges - LogonId $(win.eventdata.subjectLogonId)</description>
+
+        <group>case16,correlation,identity,privileged_logon,special_privileges,</group>
+      </rule>
+
+  <rule id="100390" level="12">
+        <if_sid>61603</if_sid>
+
+        <field name="win.eventdata.user" type="pcre2">(?i)\\soccase16$</field>
+        <field name="win.eventdata.integrityLevel">^High$</field>
+
+        <description>Case16: High-integrity process executed by controlled local account: $(win.eventdata.image) - PID $(win.eventdata.processId) - LogonId $(win.eventdata.logonId)</description>
+
+        <group>case16,identity,process_creation,high_integrity,privileged_execution,</group>
+      </rule>
+
+  <rule id="100395" level="15" timeframe="5400">
+        <if_sid>100390</if_sid>
+        <if_matched_sid>100375</if_matched_sid>
+
+        <description>Case16: High-confidence identity escalation chain - recent controlled account creation and local Administrator assignment followed by High-integrity process execution.</description>
+
+        <group>case16,correlation,identity,account_creation,privilege_assignment,privilege_escalation,high_integrity,privileged_execution,</group>
+      </rule>
 
 </group>
