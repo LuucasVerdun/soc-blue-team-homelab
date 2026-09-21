@@ -2706,6 +2706,67 @@ tickets/SOC-013-lateral-movement-detection-engineering.md
 
 ---
 
+# Case 16 — Windows Identity Abuse & Local Administrator Escalation
+
+O Case 16 validou uma cadeia controlada de identidade local em
+`WINSERVER2022`, cobrindo criação de conta, atribuição ao grupo
+`Administrators`, uso de credenciais válidas, UAC split token, privilégios
+especiais e execução High Integrity.
+
+A correlação principal foi:
+
+```text
+4720 — Local account created
+  |
+  v
+100365
+  |
+  v
+4732 — Added to Administrators
+  |
+  v
+100375 / Level 13
+  |
+  v
+4624 — Elevated token
+  |
+  v
+4672 — Special privileges
+  |
+  v
+Sysmon Event 1 — High Integrity
+  |
+  v
+100395 / Level 15
+```
+
+A validação também demonstrou:
+
+- SID novo após exclusão/recriação do mesmo username;
+- `4720.targetSid == 4732.memberSid`;
+- split token UAC com contextos Medium e High;
+- correlação de `4624`, `4672` e Sysmon pelo mesmo Logon ID;
+- positive e negative testing das regras;
+- tuning necessário para múltiplos processos High da mesma sessão;
+- cleanup com Event IDs `4733` e `4726`.
+
+MITRE ATT&CK:
+
+- `T1136.001` — Local Account
+- `T1098` — Account Manipulation
+- `T1078` — Valid Accounts
+
+Documentação:
+
+```text
+privilege-escalation/case16/case16-windows-identity-abuse-local-administrator-escalation.md
+evidence/case16/
+portfolio/16-windows-identity-abuse-local-administrator-escalation.md
+tickets/SOC-016-windows-identity-abuse-local-administrator-escalation.md
+```
+
+---
+
 # Current Detection Layers
 
 ```text
@@ -2761,6 +2822,10 @@ lateral-movement/case13/case13-lateral-movement-investigation.md
 evidence/case13/case13-evidence-summary.txt
 portfolio/13-lateral-movement-investigation-detection-engineering.md
 tickets/SOC-013-lateral-movement-detection-engineering.md
+privilege-escalation/case16/case16-windows-identity-abuse-local-administrator-escalation.md
+evidence/case16/summary.md
+portfolio/16-windows-identity-abuse-local-administrator-escalation.md
+tickets/SOC-016-windows-identity-abuse-local-administrator-escalation.md
 ```
 
 ---

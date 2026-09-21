@@ -956,6 +956,72 @@ evidence/case13/case13-suricata-alerts.json
 
 ---
 
+## 16 — Windows Identity Abuse & Local Administrator Escalation
+
+**Status:** Validated
+**Severity:** Level 15
+**Classification:** True Positive — Controlled Lab
+
+### Scenario
+
+A controlled local identity was created on `WINSERVER2022`, added to the local
+Administrators group, used for an interactive logon, elevated through normal
+UAC consent, and observed executing High Integrity processes.
+
+### Detection Chain
+
+```text
+4720 account creation
+      ↓
+100365
+      ↓
+4732 Administrators assignment
+      ↓
+100375 / Level 13
+      ↓
+4624 elevated token
+      ↓
+100380
+      ↓
+4672 special privileges
+      ↓
+100385
+      ↓
+Sysmon Event 1 / High Integrity
+      ↓
+100395 / Level 15
+```
+
+### Key Findings
+
+- The recreated username received a new SID, demonstrating username/SID
+  identity separation.
+- `4720.targetSid` matched `4732.memberSid`.
+- Elevated and filtered UAC contexts were linked through reciprocal Logon IDs.
+- `4624`, `4672`, and Sysmon Event 1 all correlated through
+  `0x452c93`.
+- The Medium token showed local Administrators as deny-only.
+- The High token showed local Administrators enabled.
+- The final Wazuh rule generated a live Level 15 correlation.
+- Positive and negative tests validated rule ordering and context.
+
+### ATT&CK
+
+- `T1136.001` — Create Account: Local Account
+- `T1098` — Account Manipulation
+- `T1078` — Valid Accounts
+
+### Evidence
+
+```text
+portfolio/16-windows-identity-abuse-local-administrator-escalation.md
+tickets/SOC-016-windows-identity-abuse-local-administrator-escalation.md
+privilege-escalation/case16/case16-windows-identity-abuse-local-administrator-escalation.md
+evidence/case16/
+```
+
+---
+
 # SOC Workflow Demonstrated
 
 The investigations in this repository follow a practical SOC workflow:
@@ -1062,22 +1128,22 @@ Recommend response / escalation
 For recruiters and SOC hiring managers, the recommended order is:
 
 ```text
-
 1. PORTFOLIO.md
-2. portfolio/15-windows-service-misconfiguration-privilege-escalation.md
-3. portfolio/14-credential-access-investigation-lsass-access-detection.md
-4. portfolio/13-lateral-movement-investigation-detection-engineering.md
-5. portfolio/12-malware-reputation-sandbox-ioc-hunting.md
-6. portfolio/08-soc-alert-triage-escalation.md
-7. portfolio/07-post-compromise-endpoint-investigation.md
-8. portfolio/06-dns-endpoint-correlation.md
-9. portfolio/05-web-attack-investigation.md
-10. docs/tri-source-rdp-correlation.md
-11. cases/case-100210-tri-source-rdp-correlation.txt
-12. docs/process-tree-investigation.md
-13. docs/windows-authentication-monitoring.md
-14. docs/suricata-network-monitoring.md
-15. docs/zeek-network-monitoring.md
+2. portfolio/16-windows-identity-abuse-local-administrator-escalation.md
+3. portfolio/15-windows-service-misconfiguration-privilege-escalation.md
+4. portfolio/14-credential-access-investigation-lsass-access-detection.md
+5. portfolio/13-lateral-movement-investigation-detection-engineering.md
+6. portfolio/12-malware-reputation-sandbox-ioc-hunting.md
+7. portfolio/08-soc-alert-triage-escalation.md
+8. portfolio/07-post-compromise-endpoint-investigation.md
+9. portfolio/06-dns-endpoint-correlation.md
+10. portfolio/05-web-attack-investigation.md
+11. docs/tri-source-rdp-correlation.md
+12. cases/case-100210-tri-source-rdp-correlation.txt
+13. docs/process-tree-investigation.md
+14. docs/windows-authentication-monitoring.md
+15. docs/suricata-network-monitoring.md
+16. docs/zeek-network-monitoring.md
 ```
 
 The full `README.md` contains the detailed technical build and implementation history.
@@ -1089,7 +1155,7 @@ The full `README.md` contains the detailed technical build and implementation hi
 The next portfolio scenarios are intentionally aligned with common SOC N1/N2 responsibilities:
 
 1. Build reusable Wazuh hunting queries for IOC and behavior-based investigations
-2. Add identity-focused investigation scenarios and account-abuse detection
+2. Expand identity-focused detections beyond the validated local account-abuse scenario
 3. Improve visibility for VM Internet traffic beyond the monitored Host-Only segment
 4. Expand endpoint detections for post-compromise behavior and identity abuse
 
