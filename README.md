@@ -1,12 +1,4 @@
-| T1070.001 | Indicator Removal: Clear Windows Event Logs | 100400, 100405, 100415, 100420 |\n# SOC Blue Team Home Lab\n| 100400 | 8 | Case17: wevtutil attempted to clear the controlled SOC-Case17 Windows event log. | T1070.001 |
-| 100405 | 10 | Case17: Controlled SOC-Case17 Windows event log was cleared. | T1070.001 |
-| 100410 | 13 | Case17: wevtutil log-clear command followed by confirmed controlled-log clearing. | — |
-| 100412 | 13 | Case17: Controlled-log clear correlated despite reversed ingestion order. | — |
-| 100415 | 10 | Case17: wevtutil attempted to clear the Windows Security audit log. | T1070.001 |
-| 100420 | 12 | Case17: Windows Security audit log was cleared. | T1070.001 |
-| 100425 | 15 | Case17: High-confidence Security log clearing chain. | — |
-| 100427 | 15 | Case17: High-confidence Security log clearing chain despite reversed ingestion order. | — |
-
+# SOC Blue Team Home Lab
 
 Laboratório prático de **Security Operations Center (SOC)** focado em Blue Team, monitoramento, detecção, correlação e investigação de eventos de segurança.
 
@@ -2173,6 +2165,14 @@ wazuh/rules/local_rules.xml
 | 100385 | 12 | Case16: Elevated logon for controlled local account followed by special privileges - LogonId $(win.eventdata.subjectLogonId) | — |
 | 100390 | 12 | Case16: High-integrity process executed by controlled local account: $(win.eventdata.image) - PID $(win.eventdata.processId) - LogonId $(win.eventdata.logonId) | — |
 | 100395 | 15 | Case16: High-confidence identity escalation chain - recent controlled account creation and local Administrator assignment followed by High-integrity process execution. | — |
+| 100400 | 8 | Case17: wevtutil attempted to clear the controlled SOC-Case17 Windows event log. | T1070.001 |
+| 100405 | 10 | Case17: Controlled SOC-Case17 Windows event log was cleared. | T1070.001 |
+| 100410 | 13 | Case17: wevtutil log-clear command followed by confirmed controlled-log clearing. | — |
+| 100412 | 13 | Case17: Controlled-log clear correlated despite reversed ingestion order. | — |
+| 100415 | 10 | Case17: wevtutil attempted to clear the Windows Security audit log. | T1070.001 |
+| 100420 | 12 | Case17: Windows Security audit log was cleared. | T1070.001 |
+| 100425 | 15 | Case17: High-confidence Security log clearing chain. | — |
+| 100427 | 15 | Case17: High-confidence Security log clearing chain despite reversed ingestion order. | — |
 
 ---
 
@@ -2309,6 +2309,7 @@ Authorized Security Test
 | T1053.005 | Scheduled Task/Job: Scheduled Task | 100230, 100235 |
 | T1059.001 | PowerShell | 100100, 100320 |
 | T1059.003 | Windows Command Shell | 100110, 100120, 100130, 100235, 100270, 100290, 100295, 100300, 100340 |
+| T1070.001 | Indicator Removal: Clear Windows Event Logs | 100400, 100405, 100415, 100420 |
 | T1071.004 | Application Layer Protocol: DNS | 100195, 100200 |
 | T1078 | Valid Accounts | 100145, 100150, 100380 |
 | T1078.003 | Valid Accounts: Local Accounts | 100175, 100205, 100210 |
