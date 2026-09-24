@@ -30,6 +30,7 @@ This portfolio is intentionally focused on the skills expected from a junior SOC
 - Cross-agent correlation
 - Multi-source incident correlation
 - JSON log analysis with `jq`
+- Out-of-order telemetry correlation
 
 ### Endpoint
 
@@ -40,6 +41,8 @@ This portfolio is intentionally focused on the skills expected from a junior SOC
 - Parent/child process relationships
 - Command-line analysis
 - Process tree reconstruction
+- Windows Event Log clearing analysis
+- Security Event ID 1102 analysis
 
 ### Network
 
@@ -67,6 +70,8 @@ This portfolio is intentionally focused on the skills expected from a junior SOC
 - True-positive classification
 - Authorized-test classification
 - Evidence preservation
+- Defense Evasion investigation
+- Positive and negative detection testing
 
 ### Frameworks
 
@@ -1034,6 +1039,64 @@ portfolio/16-windows-identity-abuse-local-administrator-escalation.md
 tickets/SOC-016-windows-identity-abuse-local-administrator-escalation.md
 privilege-escalation/case16/case16-windows-identity-abuse-local-administrator-escalation.md
 evidence/case16/
+```
+
+---
+
+## 17 — Windows Event Log Clearing & Defense Evasion
+
+**Status:** Validated
+**Severity:** Level 15
+**Classification:** True Positive — Controlled Lab
+
+### Scenario
+
+A controlled Windows Server 2022 exercise validated Windows Event Log clearing detection after preserving the relevant logs before destructive actions. The scenario progressed from an isolated `SOC-Case17` channel to the Windows Security audit log.
+
+### Detection Chain
+
+```text
+Sysmon Event 1 / Record 41784
+wevtutil.exe cl Security
+LogonId 0x60d4a
+        |
+        | ~12.97 ms event time
+        v
+Security 1102 / Record 8097
+SubjectLogonId 0x60d4a
+
+Wazuh ingestion:
+100420 / Level 12
+        |
+        v
+Sysmon arrives afterwards
+        |
+        v
+100427 / Level 15
+```
+
+### Key Findings
+
+- Security evidence was exported and hashed before clearing.
+- Event ID `104` confirmed clearing of the isolated lab log.
+- Event ID `1102` confirmed clearing of the Windows Security audit log.
+- Sysmon attributed the action to `wevtutil.exe cl Security`.
+- `Sysmon.logonId` and `1102.subjectLogonId` both contained `0x60d4a`.
+- Symmetric correlation rules handled out-of-order ingestion.
+- The final Wazuh rule generated a live Level 15 correlation.
+- A `wevtutil qe Security` negative control generated no new clear alert.
+
+### ATT&CK
+
+- `T1070.001` — Indicator Removal: Clear Windows Event Logs
+
+### Evidence
+
+```text
+portfolio/17-windows-event-log-clearing-defense-evasion.md
+tickets/SOC-017-windows-event-log-clearing.md
+defense-evasion/case17/case17-windows-event-log-clearing-investigation.md
+evidence/case17/
 ```
 
 ---

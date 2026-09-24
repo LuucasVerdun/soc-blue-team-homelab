@@ -1,0 +1,4 @@
+evidence/case17/local_rules-active-post-case17.xml binary
+evidence/case17/security-8097-event1102.xml binary
+evidence/case17/sysmon-41784-wevtutil-cl-security.xml binary
+evidence/case17/sysmon-41861-negative-qe-security.xml binary

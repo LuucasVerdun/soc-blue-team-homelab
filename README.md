@@ -1,4 +1,12 @@
-# SOC Blue Team Home Lab
+| T1070.001 | Indicator Removal: Clear Windows Event Logs | 100400, 100405, 100415, 100420 |\n# SOC Blue Team Home Lab\n| 100400 | 8 | Case17: wevtutil attempted to clear the controlled SOC-Case17 Windows event log. | T1070.001 |
+| 100405 | 10 | Case17: Controlled SOC-Case17 Windows event log was cleared. | T1070.001 |
+| 100410 | 13 | Case17: wevtutil log-clear command followed by confirmed controlled-log clearing. | — |
+| 100412 | 13 | Case17: Controlled-log clear correlated despite reversed ingestion order. | — |
+| 100415 | 10 | Case17: wevtutil attempted to clear the Windows Security audit log. | T1070.001 |
+| 100420 | 12 | Case17: Windows Security audit log was cleared. | T1070.001 |
+| 100425 | 15 | Case17: High-confidence Security log clearing chain. | — |
+| 100427 | 15 | Case17: High-confidence Security log clearing chain despite reversed ingestion order. | — |
+
 
 Laboratório prático de **Security Operations Center (SOC)** focado em Blue Team, monitoramento, detecção, correlação e investigação de eventos de segurança.
 
@@ -62,7 +70,10 @@ Para uma visão rápida das competências práticas demonstradas neste laborató
 - **[Case 16 — Windows Identity Abuse & Local Administrator Escalation](portfolio/16-windows-identity-abuse-local-administrator-escalation.md)**
   Investigação de criação e uso de identidade local privilegiada, adição ao grupo Administrators, UAC split token, correlação de SID e Logon ID entre Events 4720/4732/4624/4672 e Sysmon Event ID 1, com detecção Wazuh final Level 15.
 
-**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, password guessing analysis, successful-logon correlation, account lockout correlation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, malware triage, threat intelligence, public sandbox analysis, IOC extraction and validation, retrospective threat hunting, behavior-based hunting, false-positive validation, telemetry coverage analysis, lateral movement investigation, LSASS access investigation, Sysmon ProcessAccess analysis, credential-access detection engineering, SMB/Admin Share analysis, Windows Service execution analysis, DCE/RPC service-control analysis, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation, Windows identity abuse investigation, SID/Logon ID correlation, UAC split-token analysis, local administrator privilege analysis.
+- **[Case 17 — Windows Event Log Clearing & Defense Evasion](portfolio/17-windows-event-log-clearing-defense-evasion.md)**
+  Investigação de limpeza controlada de Windows Event Logs com Event IDs 104/1102, Sysmon, preservação prévia de evidências, correlação de Logon ID e regras Wazuh tolerantes a ingestão fora de ordem até Level 15.
+
+**Competências demonstradas:** alert triage, SIEM, Windows Event Logs, Sysmon, Suricata, Zeek, HTTP/web attack investigation, HTTP file-transfer investigation, DNS investigation com process attribution, RDP investigation, password guessing analysis, successful-logon correlation, account lockout correlation, Scheduled Task/persistence investigation, process ancestry, artifact integrity validation, malware triage, threat intelligence, public sandbox analysis, IOC extraction and validation, retrospective threat hunting, behavior-based hunting, false-positive validation, telemetry coverage analysis, lateral movement investigation, LSASS access investigation, Sysmon ProcessAccess analysis, credential-access detection engineering, SMB/Admin Share analysis, Windows Service execution analysis, DCE/RPC service-control analysis, multi-source correlation, timeline reconstruction, MITRE ATT&CK e incident escalation, Windows identity abuse investigation, SID/Logon ID correlation, UAC split-token analysis, local administrator privilege analysis, Windows Event Log clearing investigation, Security Event 1102 analysis, Defense Evasion detection engineering, evidence preservation before destructive actions, out-of-order SIEM correlation.
 
 ---
 
@@ -2828,6 +2839,45 @@ privilege-escalation/case16/case16-windows-identity-abuse-local-administrator-es
 evidence/case16/
 portfolio/16-windows-identity-abuse-local-administrator-escalation.md
 tickets/SOC-016-windows-identity-abuse-local-administrator-escalation.md
+```
+
+---
+
+# Case 17 — Windows Event Log Clearing & Defense Evasion
+
+O Case 17 validou uma cadeia controlada de limpeza de Windows Event Logs em `WINSERVER2022`, com preservação de evidências antes das ações destrutivas.
+
+```text
+SOC-Case17 controlled log
+  +--> Sysmon Event 1 — wevtutil.exe cl SOC-Case17
+  +--> System Event 104 — log cleared
+  v
+100412 / Level 13
+(reversed-ingestion correlation)
+
+Windows Security log
+  +--> Sysmon Event 1 — wevtutil.exe cl Security
+  +--> Security Event 1102 — audit log cleared
+  v
+100427 / Level 15
+(reversed-ingestion correlation)
+```
+
+Na validação final, Sysmon Record `41784` e Security Record `8097` compartilharam Logon ID `0x60d4a`. O Sysmon ocorreu aproximadamente `12.97 ms` antes do `1102`, mas o Wazuh recebeu os canais em ordem invertida e materializou `100420 / Level 12` seguido por `100427 / Level 15`.
+
+A correlação Wazuh é temporal; a igualdade entre `Sysmon.logonId` e `1102.subjectLogonId` foi validada durante a investigação.
+
+Negative test: `wevtutil qe Security` gerou Sysmon Record `41861`, mas nenhum novo alerta Case17; o contador permaneceu `2 -> 2`.
+
+MITRE ATT&CK: `T1070.001 — Indicator Removal: Clear Windows Event Logs`.
+
+Documentação:
+
+```text
+defense-evasion/case17/case17-windows-event-log-clearing-investigation.md
+evidence/case17/
+portfolio/17-windows-event-log-clearing-defense-evasion.md
+tickets/SOC-017-windows-event-log-clearing.md
 ```
 
 ---

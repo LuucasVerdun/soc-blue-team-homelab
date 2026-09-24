@@ -1,0 +1,99 @@
+<group name="local,soc_lab,">
+
+  <!-- CASE 17 - Windows Event Log Clearing / Defense Evasion -->
+
+  <rule id="100400" level="8">
+    <if_sid>61603</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)\\wevtutil\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bcl\b\s+SOC-Case17(?:\s|$)</field>
+
+    <description>Case17: wevtutil attempted to clear the controlled SOC-Case17 Windows event log: $(win.eventdata.commandLine)</description>
+
+    <group>case17,defense_evasion,log_clearing,process_creation,</group>
+
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100405" level="10">
+    <if_sid>63104</if_sid>
+
+    <field name="win.logFileCleared.channel">^SOC-Case17$</field>
+
+    <description>Case17: Controlled SOC-Case17 Windows event log was cleared by $(win.logFileCleared.subjectDomainName)\$(win.logFileCleared.subjectUserName)</description>
+
+    <group>case17,defense_evasion,log_clearing,event_log_cleared,</group>
+
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100410" level="13" timeframe="30">
+    <if_sid>100405</if_sid>
+    <if_matched_sid>100400</if_matched_sid>
+
+    <description>Case17: wevtutil log-clear command was followed by confirmed clearing of the controlled SOC-Case17 event log.</description>
+
+    <group>case17,correlation,defense_evasion,log_clearing,</group>
+  </rule>
+
+  <rule id="100412" level="13" timeframe="30">
+    <if_sid>100400</if_sid>
+    <if_matched_sid>100405</if_matched_sid>
+
+    <description>Case17: Confirmed clearing of the controlled SOC-Case17 event log was correlated with the associated wevtutil log-clear command despite reversed ingestion order.</description>
+
+    <group>case17,correlation,defense_evasion,log_clearing,out_of_order,</group>
+  </rule>
+
+  <!-- CASE 17 - Security Audit Log Clearing -->
+
+  <rule id="100415" level="10">
+    <if_sid>61603</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)\\wevtutil\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bcl\b\s+Security(?:\s|$)</field>
+
+    <description>Case17: wevtutil attempted to clear the Windows Security audit log: $(win.eventdata.commandLine) - User $(win.eventdata.user) - LogonId $(win.eventdata.logonId)</description>
+
+    <group>case17,defense_evasion,log_clearing,security_log,process_creation,</group>
+
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100420" level="12">
+    <if_sid>63103</if_sid>
+
+    <description>Case17: Windows Security audit log was cleared by $(win.logFileCleared.subjectDomainName)\$(win.logFileCleared.subjectUserName) - SID $(win.logFileCleared.subjectUserSid) - LogonId $(win.logFileCleared.subjectLogonId)</description>
+
+    <group>case17,defense_evasion,log_clearing,security_log,audit_log_cleared,</group>
+
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100425" level="15" timeframe="30">
+    <if_sid>100420</if_sid>
+    <if_matched_sid>100415</if_matched_sid>
+
+    <description>Case17: High-confidence Windows Security log clearing chain - wevtutil clear command followed by confirmed Security audit log clearing.</description>
+
+    <group>case17,correlation,defense_evasion,log_clearing,security_log,high_confidence,</group>
+  </rule>
+
+  <rule id="100427" level="15" timeframe="30">
+    <if_sid>100415</if_sid>
+    <if_matched_sid>100420</if_matched_sid>
+
+    <description>Case17: High-confidence Windows Security log clearing chain correlated despite reversed telemetry ingestion order.</description>
+
+    <group>case17,correlation,defense_evasion,log_clearing,security_log,high_confidence,out_of_order,</group>
+  </rule>
+
+</group>

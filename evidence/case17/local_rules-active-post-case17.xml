@@ -1,0 +1,958 @@
+<!-- Local rules -->
+
+<!-- Modify it at your will. -->
+<!-- Copyright (C) 2015, Wazuh Inc. -->
+
+<group name="local,syslog,sshd,">
+
+  <rule id="100001" level="5">
+    <if_sid>5716</if_sid>
+    <srcip>1.1.1.1</srcip>
+    <description>sshd: authentication failed from IP 1.1.1.1.</description>
+    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+  </rule>
+
+  <rule id="100100" level="10">
+    <if_sid>91802</if_sid>
+    <field name="win.system.eventID">4104</field>
+    <field name="win.eventdata.scriptBlockText">SOC-LAB-DETECTION-TEST</field>
+    <description>SOC LAB: PowerShell Script Block test detected.</description>
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+    <group>powershell,soc_lab,</group>
+  </rule>
+
+  <rule id="100110" level="8">
+    <if_sid>92004</if_sid>
+    <field name="win.eventdata.integrityLevel" type="pcre2">(?i)^High$</field>
+    <description>SOC LAB: PowerShell spawned CMD with High integrity.</description>
+    <mitre>
+      <id>T1059.003</id>
+    </mitre>
+    <group>sysmon,powershell,windows_command_shell,soc_lab,</group>
+  </rule>
+
+  <rule id="100120" level="10">
+    <if_sid>100110</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bwhoami\b</field>
+    <description>SOC LAB: High-integrity PowerShell spawned CMD and executed whoami.</description>
+    <mitre>
+      <id>T1033</id>
+      <id>T1059.003</id>
+    </mitre>
+    <group>sysmon,powershell,discovery,windows_command_shell,soc_lab,</group>
+  </rule>
+
+  <rule id="100130" level="12">
+    <if_sid>100110</if_sid>
+
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bwhoami\b</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bhostname\b</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bipconfig\b</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bnet\s+user\b</field>
+
+    <description>SOC LAB: Multiple Windows discovery commands executed from elevated PowerShell.</description>
+
+    <mitre>
+      <id>T1033</id>
+      <id>T1016</id>
+      <id>T1087.001</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>sysmon,powershell,discovery,multiple_discovery_commands,soc_lab,</group>
+  </rule>
+
+</group>
+
+<group name="local,soc_lab,">
+
+  <rule id="100135" level="6">
+    <if_sid>60122</if_sid>
+    <field name="win.eventdata.subStatus" type="pcre2">(?i)^0xc000006a$</field>
+    <description>SOC LAB: Windows logon failure caused by incorrect password for an existing account.</description>
+    <group>authentication_failed,password_failure,soc_lab,</group>
+  </rule>
+
+  <rule id="100140" level="12" frequency="5" timeframe="60">
+    <if_matched_sid>100135</if_matched_sid>
+    <same_field>win.eventdata.targetUserName</same_field>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <description>SOC LAB: Repeated password failures against the same Windows account from the same source IP.</description>
+    <group>authentication_failed,brute_force,password_guessing,soc_lab,</group>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100145" level="4">
+    <if_sid>60106</if_sid>
+    <field name="win.system.eventID">^4624$</field>
+    <field name="win.eventdata.logonType">^3$</field>
+    <description>SOC LAB: Successful Windows network logon.</description>
+    <group>authentication_success,network_logon,soc_lab,</group>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+  </rule>
+
+
+  <rule id="100150" level="14" timeframe="300">
+    <if_sid>100145</if_sid>
+    <if_matched_sid>100140</if_matched_sid>
+    <same_field>win.eventdata.targetUserName</same_field>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <description>SOC LAB: Successful Windows network logon after repeated password guessing attempts.</description>
+    <group>authentication_success,possible_account_compromise,password_guessing,soc_lab,</group>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+  </rule>
+  <rule id="100155" level="13" timeframe="300">
+    <if_sid>60115</if_sid>
+    <if_matched_sid>100140</if_matched_sid>
+    <same_field>win.eventdata.targetUserName</same_field>
+
+    <description>SOC LAB: Windows account locked out after repeated password guessing attempts.</description>
+
+    <group>authentication_failed,account_lockout,password_guessing,soc_lab,</group>
+
+    <mitre>
+      <id>T1110.001</id>
+      <id>T1531</id>
+    </mitre>
+  </rule>
+
+  <rule id="100160" level="5">
+    <if_sid>60009</if_sid>
+
+    <field name="win.system.providerName" type="pcre2">^Microsoft-Windows-TerminalServices-RemoteConnectionManager$</field>
+    <field name="win.system.eventID">^261$</field>
+
+    <description>SOC LAB: RDP connection received by Windows Remote Desktop listener.</description>
+
+    <group>rdp,remote_access,soc_lab,</group>
+
+    <mitre>
+      <id>T1021.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100165" level="7" timeframe="10">
+    <if_sid>100135</if_sid>
+    <if_matched_sid>100160</if_matched_sid>
+
+    <description>SOC LAB: Failed Windows authentication associated with a recent RDP connection.</description>
+
+    <group>authentication_failed,rdp,remote_access,soc_lab,</group>
+
+    <mitre>
+      <id>T1021.001</id>
+      <id>T1110.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100170" level="12" frequency="4" timeframe="60">
+    <if_matched_sid>100165</if_matched_sid>
+    <same_field>win.eventdata.targetUserName</same_field>
+    <same_field>win.eventdata.ipAddress</same_field>
+
+    <description>SOC LAB: Repeated RDP authentication failures against the same Windows account from the same source IP.</description>
+
+    <group>authentication_failed,rdp,brute_force,password_guessing,remote_access,soc_lab,</group>
+
+    <mitre>
+      <id>T1021.001</id>
+      <id>T1110.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100175" level="14" timeframe="300">
+    <if_sid>92653</if_sid>
+    <if_matched_sid>100170</if_matched_sid>
+
+    <same_field>win.eventdata.targetUserName</same_field>
+    <same_field>win.eventdata.ipAddress</same_field>
+
+    <description>SOC LAB: Successful RDP logon after repeated password guessing from the same source IP.</description>
+
+    <group>authentication_success,rdp,password_guessing,valid_accounts,remote_access,soc_lab,</group>
+
+    <mitre>
+      <id>T1021.001</id>
+      <id>T1078.003</id>
+    </mitre>
+  </rule>
+
+  <rule id="100180" level="6">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature_id">^1000001$</field>
+
+    <description>SOC LAB: Suricata detected an RDP connection attempt from WIN10 to WINSERVER2022.</description>
+
+    <group>suricata,ids,rdp,network_detection,soc_lab,</group>
+
+    <mitre>
+      <id>T1021.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100185" level="8">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature_id">^1000002$</field>
+
+    <description>SOC LAB: Suricata detected a possible TCP port scan against WINSERVER2022.</description>
+
+    <group>suricata,ids,network_scan,reconnaissance,soc_lab,</group>
+
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
+
+
+  <rule id="100190" level="5">
+    <decoded_as>json</decoded_as>
+
+    <field name="id.orig_h">^192\.168\.100\.20$</field>
+    <field name="id.resp_h">^192\.168\.100\.30$</field>
+    <field name="id.resp_p">^3389$</field>
+    <field name="proto">^tcp$</field>
+
+    <description>SOC LAB: Zeek observed an RDP connection from WIN10 to WINSERVER2022.</description>
+
+    <group>zeek,network_connection,rdp,soc_lab,</group>
+
+    <mitre>
+      <id>T1021.001</id>
+    </mitre>
+  </rule>
+
+
+  <rule id="100195" level="7">
+    <decoded_as>json</decoded_as>
+
+    <field name="id.orig_h">^192\.168\.100\.20$</field>
+    <field name="id.resp_h">^192\.168\.100\.30$</field>
+    <field name="id.resp_p">^53$</field>
+    <field name="query" type="pcre2">(?i)^(?:[a-z0-9-]+\.)*soc-lab-beacon\.example\.?$</field>
+
+
+    <description>SOC LAB: Zeek detected a controlled suspicious DNS query from WIN10.</description>
+
+    <group>zeek,dns,network_detection,soc_lab,</group>
+
+    <mitre>
+      <id>T1071.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100200" level="10" frequency="4" timeframe="15">
+    <if_matched_sid>100195</if_matched_sid>
+
+    <same_field>id.orig_h</same_field>
+    <same_field>query</same_field>
+
+    <description>SOC LAB: Repeated suspicious DNS queries from the same source may indicate beacon-like activity.</description>
+
+    <group>zeek,dns,beaconing,command_and_control,soc_lab,</group>
+
+    <mitre>
+      <id>T1071.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100205" level="15" timeframe="600">
+    <if_sid>100175</if_sid>
+    <if_matched_sid>100185</if_matched_sid>
+
+    <global_frequency />
+
+    <field name="win.eventdata.ipAddress">^192\.168\.100\.20$</field>
+
+    <description>SOC LAB: Network reconnaissance followed by successful RDP access after password guessing.</description>
+
+    <group>correlation,multi_source,suricata,windows,rdp,reconnaissance,lateral_movement,soc_lab,</group>
+
+    <mitre>
+      <id>T1046</id>
+      <id>T1021.001</id>
+      <id>T1078.003</id>
+    </mitre>
+  </rule>
+
+  <rule id="100210" level="15" timeframe="300">
+    <if_sid>100205</if_sid>
+    <if_matched_sid>100190</if_matched_sid>
+
+    <global_frequency />
+
+    <field name="win.eventdata.ipAddress">^192\.168\.100\.20$</field>
+
+    <description>SOC LAB: Tri-source correlation - Suricata reconnaissance, Zeek RDP network activity, and successful Windows RDP access after password guessing.</description>
+
+    <group>correlation,multi_source,suricata,zeek,windows,rdp,reconnaissance,credential_access,lateral_movement,soc_lab,</group>
+
+    <mitre>
+      <id>T1046</id>
+      <id>T1110.001</id>
+      <id>T1021.001</id>
+      <id>T1078.003</id>
+    </mitre>
+  </rule>
+
+  <rule id="100215" level="10">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature_id">^1000003$</field>
+
+    <description>SOC LAB: Suricata detected a possible HTTP command injection attempt against WINSERVER2022.</description>
+
+    <group>suricata,ids,http,web_attack,command_injection,soc_lab,</group>
+  </rule>
+
+  <rule id="100220" level="8">
+    <if_sid>61650</if_sid>
+
+    <field name="win.eventdata.queryName" type="pcre2">(?i)^(?:[a-z0-9-]+\.)*soc-lab-beacon\.example\.?$</field>
+
+    <description>SOC LAB: Sysmon observed a controlled suspicious DNS query from $(win.eventdata.image).</description>
+
+    <group>sysmon,dns,endpoint_detection,soc_lab,</group>
+  </rule>
+
+
+  <rule id="100225" level="13" timeframe="60">
+    <if_sid>100200</if_sid>
+    <if_matched_sid>100220</if_matched_sid>
+
+    <global_frequency />
+
+    <field name="query" type="pcre2">(?i)^(?:[a-z0-9-]+\.)*soc-lab-beacon\.example\.?$</field>
+
+    <description>SOC LAB: Multi-source correlation - repeated DNS activity observed by Zeek and attributed to an endpoint process by Sysmon.</description>
+
+    <group>correlation,multi_source,zeek,sysmon,dns,endpoint_attribution,beaconing,soc_lab,</group>
+  </rule>
+
+  <rule id="100230" level="13" timeframe="120">
+    <if_sid>67014</if_sid>
+    <if_matched_sid>100130</if_matched_sid>
+
+    <field name="win.eventdata.taskName" type="pcre2">(?i)SOC-LAB-CASE07$</field>
+
+    <description>SOC LAB: Discovery activity was followed by registration of the controlled scheduled task $(win.eventdata.taskName).</description>
+
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+
+    <group>correlation,task_scheduler,persistence,discovery,soc_lab,</group>
+  </rule>
+
+
+  <rule id="100235" level="15" timeframe="90">
+    <if_sid>92052</if_sid>
+    <if_matched_sid>100230</if_matched_sid>
+
+    <field name="win.eventdata.parentCommandLine" type="pcre2">(?i)svchost\.exe.*-s\s+Schedule\b</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)SOC\s+CASE\s+07\s+CONTROLLED\s+TASK</field>
+
+    <description>SOC LAB: Correlated endpoint chain - discovery followed by scheduled task registration and task-driven command execution.</description>
+
+    <mitre>
+      <id>T1053.005</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>correlation,endpoint,sysmon,task_scheduler,persistence,execution,discovery,soc_lab,</group>
+  </rule>
+
+
+  <rule id="100240" level="8">
+    <if_sid>61613</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)powershell\.exe$</field>
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)case08-filecreate-[0-9]+\.txt$</field>
+
+    <description>SOC LAB: PowerShell created a controlled file - $(win.eventdata.targetFilename).</description>
+
+    <group>sysmon,file_create,powershell,endpoint_detection,soc_lab,</group>
+  </rule>
+
+
+
+  <rule id="100245" level="7">
+    <if_sid>86602</if_sid>
+
+    <field name="src_ip">^192\.168\.100\.20$</field>
+    <field name="dest_ip">^192\.168\.100\.30$</field>
+    <field name="dest_port">^80$</field>
+    <field name="http.http_method">^GET$</field>
+    <field name="http.url" type="pcre2">(?i)^/lab/case08-benign\.txt\?case=case08-download-[0-9]+$</field>
+    <field name="http.status">^200$</field>
+
+    <description>SOC LAB: Suricata observed the controlled HTTP file download from WIN10.</description>
+
+    <group>suricata,http,file_transfer,network_detection,soc_lab,</group>
+  </rule>
+
+
+  <!-- Network event arrived first, endpoint event arrived second -->
+  <rule id="100250" level="13" timeframe="60">
+    <if_sid>100240</if_sid>
+    <if_matched_sid>100245</if_matched_sid>
+
+    <global_frequency />
+
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)case08-filecreate-[0-9]+\.txt$</field>
+
+    <description>SOC LAB: Multi-source correlation - HTTP transfer observed by Suricata followed by PowerShell file creation on WIN10.</description>
+
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+
+    <group>correlation,multi_source,suricata,sysmon,http,file_transfer,endpoint_detection,soc_lab,</group>
+  </rule>
+
+
+  <!-- Endpoint event arrived first, network event arrived second -->
+  <rule id="100255" level="13" timeframe="60">
+    <if_sid>100245</if_sid>
+    <if_matched_sid>100240</if_matched_sid>
+
+    <global_frequency />
+
+    <field name="http.url" type="pcre2">(?i)^/lab/case08-benign\.txt\?case=case08-download-[0-9]+$</field>
+
+    <description>SOC LAB: Multi-source correlation - PowerShell file creation on WIN10 correlated with an HTTP transfer observed by Suricata.</description>
+
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+
+    <group>correlation,multi_source,suricata,sysmon,http,file_transfer,endpoint_detection,soc_lab,</group>
+  </rule>
+
+    <!-- CASE 13 - SMB administrative-share file write -->
+  <rule id="100260" level="8">
+    <if_sid>60103</if_sid>
+
+    <field name="win.system.eventID">^5145$</field>
+    <field name="win.eventdata.ipAddress">^192\.168\.100\.20$</field>
+    <field name="win.eventdata.shareName" type="pcre2">(?i)ADMIN\$$</field>
+    <field name="win.eventdata.relativeTargetName" type="pcre2">(?i)case13-remote-[0-9]{8}-[0-9]{6}\.cmd$</field>
+    <field name="win.eventdata.accessMask">^0x2$</field>
+
+    <description>SOC LAB: WIN10 wrote the controlled Case13 script through the ADMIN$ administrative share.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+    </mitre>
+
+    <group>windows,smb,admin_share,file_transfer,lateral_movement,soc_lab,</group>
+  </rule>
+
+    <!-- CASE 13 - controlled Windows service creation -->
+  <rule id="100265" level="10">
+    <if_sid>61138</if_sid>
+
+    <field name="win.eventdata.serviceName" type="pcre2">^SOC_CASE13_[0-9]{14}$</field>
+    <field name="win.eventdata.imagePath" type="pcre2">(?i)case13-remote-[0-9]{8}-[0-9]{6}\.cmd$</field>
+    <field name="win.eventdata.accountName">^LocalSystem$</field>
+
+    <description>SOC LAB: Controlled Case13 Windows service created to launch a command script as LocalSystem.</description>
+
+    <mitre>
+      <id>T1543.003</id>
+    </mitre>
+
+    <group>windows,service_creation,remote_service,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 13 - controlled command execution as SYSTEM -->
+  <rule id="100270" level="12">
+    <if_sid>61603</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)cmd\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)case13-remote-[0-9]{8}-[0-9]{6}\.cmd$</field>
+    <field name="win.eventdata.user" type="pcre2">(?i)SYSTEM$</field>
+
+    <description>SOC LAB: Controlled Case13 command script executed by cmd.exe as SYSTEM.</description>
+
+    <mitre>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>sysmon,process_creation,windows_command_shell,execution,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 13 - controlled execution marker -->
+  <rule id="100275" level="8">
+    <if_sid>61613</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)cmd\.exe$</field>
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)case13-marker-[0-9]{8}-[0-9]{6}\.txt$</field>
+    <field name="win.eventdata.user" type="pcre2">(?i)SYSTEM$</field>
+
+    <description>SOC LAB: Controlled Case13 execution marker created by cmd.exe as SYSTEM.</description>
+
+    <group>sysmon,file_create,execution_artifact,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 13 - Suricata lateral movement indication -->
+  <rule id="100280" level="10">
+    <if_sid>86601</if_sid>
+
+    <field name="alert.signature" type="pcre2">(?i)^ET INFO Command Shell Activity Over SMB - Possible Lateral Movement$</field>
+    <field name="src_ip">^192\.168\.100\.20$</field>
+    <field name="dest_ip">^192\.168\.100\.30$</field>
+    <field name="dest_port">^445$</field>
+
+    <description>SOC LAB: Suricata detected command shell activity over SMB from WIN10 to WINSERVER2022.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+    </mitre>
+
+    <group>suricata,smb,network_detection,lateral_movement,soc_lab,</group>
+  </rule>
+
+    <!-- CASE 13 - ADMIN$ transfer followed by remote service creation -->
+  <rule id="100285" level="13" timeframe="120">
+    <if_sid>100265</if_sid>
+    <if_matched_sid>100260</if_matched_sid>
+
+    <description>SOC LAB: Case13 SMB administrative-share transfer was followed by controlled remote service creation.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1543.003</id>
+    </mitre>
+
+    <group>correlation,windows,smb,admin_share,remote_service,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 13 - remote-service chain followed by SYSTEM command execution -->
+  <rule id="100290" level="15" timeframe="120">
+    <if_sid>100270</if_sid>
+    <if_matched_sid>100285</if_matched_sid>
+
+    <description>SOC LAB: Confirmed Case13 lateral movement chain - SMB transfer and remote service creation followed by command execution as SYSTEM.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1569.002</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>correlation,endpoint,windows,smb,service_execution,windows_command_shell,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- Network evidence arrived after endpoint correlation -->
+  <rule id="100295" level="15" timeframe="120">
+    <if_sid>100280</if_sid>
+    <if_matched_sid>100290</if_matched_sid>
+
+    <global_frequency />
+
+    <description>SOC LAB: Multi-source confirmation - correlated Windows lateral movement chain also detected by Suricata over SMB.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1569.002</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>correlation,multi_source,suricata,windows,sysmon,smb,service_execution,lateral_movement,soc_lab,</group>
+  </rule>
+
+
+  <!-- Network evidence arrived before endpoint correlation -->
+  <rule id="100300" level="15" timeframe="120">
+    <if_sid>100290</if_sid>
+    <if_matched_sid>100280</if_matched_sid>
+
+    <global_frequency />
+
+    <description>SOC LAB: Multi-source confirmation - Suricata SMB lateral-movement indication correlated with the confirmed Windows execution chain.</description>
+
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1569.002</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>correlation,multi_source,suricata,windows,sysmon,smb,service_execution,lateral_movement,soc_lab,</group>
+  </rule>
+
+    <!-- CASE 14 - controlled PowerShell Add-Type compilation -->
+  <rule id="100310" level="8">
+    <if_sid>92006</if_sid>
+
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)\\powershell\.exe$</field>
+    <field name="win.eventdata.parentCommandLine" type="pcre2">(?i)case14-lsass-access-[0-9]{8}-[0-9]{6}\.ps1</field>
+
+    <description>SOC LAB: Controlled Case14 PowerShell Add-Type compilation observed before LSASS access.</description>
+
+    <group>sysmon,process_creation,powershell,csc,case14,soc_lab,</group>
+  </rule>
+  
+    <!-- CASE 14 - controlled read-capable LSASS handle -->
+  <rule id="100315" level="13">
+    <if_sid>92900</if_sid>
+
+    <field name="win.eventdata.sourceImage" type="pcre2">(?i)\\powershell\.exe$</field>
+    <field name="win.eventdata.targetImage" type="pcre2">(?i)\\lsass\.exe$</field>
+    <field name="win.eventdata.grantedAccess">^0x1010$</field>
+
+    <description>SOC LAB: Controlled Case14 PowerShell process obtained a read-capable handle to LSASS.</description>
+
+    <group>sysmon,process_access,lsass,credential_access_investigation,case14,soc_lab,</group>
+  </rule>
+
+    <!-- CASE 14 - process creation followed by LSASS access -->
+  <rule id="100320" level="15" timeframe="60">
+    <if_sid>100315</if_sid>
+    <if_matched_sid>100310</if_matched_sid>
+
+    <description>SOC LAB: Controlled Case14 PowerShell execution was followed by read-capable LSASS process access.</description>
+
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+
+    <group>correlation,sysmon,powershell,lsass,credential_access_investigation,case14,soc_lab,</group>
+  </rule>
+
+  <!-- CASE 15 - standard user changes vulnerable service configuration -->
+  <rule id="100325" level="8">
+    <if_sid>92005</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)\\sc\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)^sc\.exe\s+config\s+SOC_CASE15\s+binPath=.*case15-marker-[0-9]{8}-[0-9]{6}\.cmd</field>
+    <field name="win.eventdata.user" type="pcre2">(?i)\\soccase15$</field>
+    <field name="win.eventdata.integrityLevel">^Medium$</field>
+
+    <description>SOC LAB: Standard user modified SOC_CASE15 service configuration to execute the controlled marker script.</description>
+
+    <mitre>
+      <id>T1543.003</id>
+    </mitre>
+
+    <group>sysmon,service_modification,privilege_escalation,case15,soc_lab,</group>
+  </rule>
+
+  <!-- CASE 15 - Service Control Manager writes the modified ImagePath -->
+  <rule id="100330" level="10">
+    <if_sid>92307</if_sid>
+
+    <field name="win.eventdata.targetObject" type="pcre2">(?i)SOC_CASE15\\\\ImagePath$</field>
+    <field name="win.eventdata.details" type="pcre2">(?i)case15-marker-[0-9]{8}-[0-9]{6}\.cmd$</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\services\.exe$</field>
+
+    <description>SOC LAB: SOC_CASE15 ImagePath was changed to the controlled Case15 marker command.</description>
+
+    <mitre>
+      <id>T1543.003</id>
+    </mitre>
+
+    <group>sysmon,registry,service_modification,case15,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 15 - standard user starts vulnerable LocalSystem service -->
+  <rule id="100335" level="10">
+    <if_sid>92032</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)\\sc\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)^sc\.exe\s+start\s+SOC_CASE15$</field>
+    <field name="win.eventdata.user" type="pcre2">(?i)\\soccase15$</field>
+    <field name="win.eventdata.integrityLevel">^Medium$</field>
+
+    <description>SOC LAB: Standard user started the controlled SOC_CASE15 LocalSystem service.</description>
+
+    <mitre>
+      <id>T1569.002</id>
+    </mitre>
+
+    <group>sysmon,service_execution,privilege_escalation,case15,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 15 - SYSTEM execution from controlled service payload -->
+  <rule id="100340" level="12">
+    <if_sid>92032</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)\\whoami\.exe$</field>
+    <field name="win.eventdata.user" type="pcre2">(?i)SYSTEM$</field>
+    <field name="win.eventdata.integrityLevel">^System$</field>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)\\cmd\.exe$</field>
+    <field name="win.eventdata.parentCommandLine" type="pcre2">(?i)case15-marker-[0-9]{8}-[0-9]{6}\.cmd</field>
+
+    <description>SOC LAB: Controlled Case15 service payload executed a child process as NT AUTHORITY SYSTEM.</description>
+
+    <mitre>
+      <id>T1569.002</id>
+      <id>T1059.003</id>
+    </mitre>
+
+    <group>sysmon,system_execution,service_execution,privilege_escalation,case15,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 15 - SYSTEM creates controlled privilege-escalation marker -->
+  <rule id="100345" level="12">
+    <if_sid>61613</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)\\cmd\.exe$</field>
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)case15-system-marker-[0-9]{8}-[0-9]{6}\.txt$</field>
+    <field name="win.eventdata.user" type="pcre2">(?i)SYSTEM$</field>
+
+    <description>SOC LAB: NT AUTHORITY SYSTEM created the controlled Case15 privilege-escalation marker.</description>
+
+    <mitre>
+      <id>T1569.002</id>
+    </mitre>
+
+    <group>sysmon,file_creation,system_execution,privilege_escalation,case15,soc_lab,</group>
+  </rule>
+
+  <!-- CASE 15 - standard-user service modification confirmed in Registry -->
+  <rule id="100350" level="13" timeframe="60">
+    <if_sid>100330</if_sid>
+    <if_matched_sid>100325</if_matched_sid>
+
+    <description>SOC LAB: Standard-user service configuration change was followed by SOC_CASE15 ImagePath modification.</description>
+
+    <mitre>
+      <id>T1543.003</id>
+    </mitre>
+
+    <group>correlation,service_modification,privilege_escalation,case15,soc_lab,</group>
+  </rule>
+
+  <!-- CASE 15 - symmetric service-modification correlation -->
+  <rule id="100352" level="13" timeframe="60">
+    <if_sid>100325</if_sid>
+    <if_matched_sid>100330</if_matched_sid>
+
+    <description>SOC LAB: SOC_CASE15 Registry ImagePath modification correlated with the standard-user service configuration change.</description>
+
+    <mitre>
+      <id>T1543.003</id>
+    </mitre>
+
+    <group>correlation,service_modification,privilege_escalation,case15,soc_lab,</group>
+  </rule>
+
+
+  <!-- CASE 15 - standard user modifies and then starts LocalSystem service -->
+  <rule id="100355" level="14" timeframe="120">
+    <if_sid>100335</if_sid>
+    <if_matched_sid>100325</if_matched_sid>
+
+    <description>SOC LAB: Standard user started SOC_CASE15 after modifying its LocalSystem service configuration.</description>
+
+    <mitre>
+      <id>T1543.003</id>
+      <id>T1569.002</id>
+    </mitre>
+
+    <group>correlation,service_execution,privilege_escalation,case15,soc_lab,</group>
+  </rule>
+
+  <!-- CASE 15 - final standard-user to SYSTEM privilege escalation chain -->
+  <rule id="100360" level="15" timeframe="120">
+    <if_sid>100340</if_sid>
+    <if_matched_sid>100355</if_matched_sid>
+
+    <description>SOC LAB: Case15 privilege-escalation chain confirmed - standard user modified and started a LocalSystem service followed by controlled SYSTEM execution.</description>
+
+    <mitre>
+      <id>T1543.003</id>
+      <id>T1569.002</id>
+    </mitre>
+
+    <group>correlation,system_execution,service_execution,privilege_escalation,case15,soc_lab,</group>
+  </rule>
+
+  <rule id="100365" level="8">
+    <if_sid>60109</if_sid>
+    <field name="win.system.eventID">^4720$</field>
+    <field name="win.eventdata.targetUserName" type="pcre2">(?i)^soccase16$</field>
+    <description>Case16: Controlled local account created: $(win.eventdata.targetUserName)</description>
+    <group>case16,identity,account_creation,</group>
+    <mitre>
+      <id>T1136.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100370" level="12">
+    <if_sid>60154</if_sid>
+    <field name="win.system.eventID">^4732$</field>
+    <description>Case16: Member added to local Administrators group: $(win.eventdata.memberSid)</description>
+    <group>case16,identity,privilege_assignment,local_admin_group,</group>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+  </rule>
+
+  <rule id="100375" level="13" timeframe="1800">
+    <if_sid>100370</if_sid>
+    <if_matched_sid>100365</if_matched_sid>
+
+    <description>Case16: Recent controlled local account creation followed by local Administrators group assignment.</description>
+
+    <group>case16,correlation,identity,account_creation,privilege_assignment,local_admin_group,</group>
+  </rule>
+
+  <rule id="100380" level="10">
+    <if_sid>60118</if_sid>
+    <field name="win.eventdata.targetUserName" type="pcre2">(?i)^soccase16$</field>
+    <field name="win.eventdata.elevatedToken">^%%1842$</field>
+
+    <description>Case16: Controlled local account logged on with an elevated token: $(win.eventdata.targetUserName) - LogonId $(win.eventdata.targetLogonId)</description>
+
+    <group>case16,identity,authentication,privileged_logon,elevated_token,</group>
+
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+  </rule>
+
+  <rule id="100385" level="12" timeframe="60">
+    <if_sid>67028</if_sid>
+    <if_matched_sid>100380</if_matched_sid>
+
+    <field name="win.eventdata.subjectUserName" type="pcre2">(?i)^soccase16$</field>
+
+    <description>Case16: Elevated logon for controlled local account followed by special privileges - LogonId $(win.eventdata.subjectLogonId)</description>
+
+    <group>case16,correlation,identity,privileged_logon,special_privileges,</group>
+  </rule>
+
+  <rule id="100390" level="12">
+    <if_sid>61603</if_sid>
+
+    <field name="win.eventdata.user" type="pcre2">(?i)\\soccase16$</field>
+    <field name="win.eventdata.integrityLevel">^High$</field>
+
+    <description>Case16: High-integrity process executed by controlled local account: $(win.eventdata.image) - PID $(win.eventdata.processId) - LogonId $(win.eventdata.logonId)</description>
+
+    <group>case16,identity,process_creation,high_integrity,privileged_execution,</group>
+  </rule>
+
+  <rule id="100395" level="15" timeframe="5400">
+    <if_sid>100390</if_sid>
+    <if_matched_sid>100375</if_matched_sid>
+
+    <description>Case16: High-confidence identity escalation chain - recent controlled account creation and local Administrator assignment followed by High-integrity process execution.</description>
+
+    <group>case16,correlation,identity,account_creation,privilege_assignment,privilege_escalation,high_integrity,privileged_execution,</group>
+  </rule>
+
+  <!-- CASE 17 - Windows Event Log Clearing / Defense Evasion -->
+
+  <rule id="100400" level="8">
+    <if_sid>61603</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)\\wevtutil\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bcl\b\s+SOC-Case17(?:\s|$)</field>
+
+    <description>Case17: wevtutil attempted to clear the controlled SOC-Case17 Windows event log: $(win.eventdata.commandLine)</description>
+
+    <group>case17,defense_evasion,log_clearing,process_creation,</group>
+
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100405" level="10">
+    <if_sid>63104</if_sid>
+
+    <field name="win.logFileCleared.channel">^SOC-Case17$</field>
+
+    <description>Case17: Controlled SOC-Case17 Windows event log was cleared by $(win.logFileCleared.subjectDomainName)\$(win.logFileCleared.subjectUserName)</description>
+
+    <group>case17,defense_evasion,log_clearing,event_log_cleared,</group>
+
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100410" level="13" timeframe="30">
+    <if_sid>100405</if_sid>
+    <if_matched_sid>100400</if_matched_sid>
+
+    <description>Case17: wevtutil log-clear command was followed by confirmed clearing of the controlled SOC-Case17 event log.</description>
+
+    <group>case17,correlation,defense_evasion,log_clearing,</group>
+  </rule>
+
+  <rule id="100412" level="13" timeframe="30">
+    <if_sid>100400</if_sid>
+    <if_matched_sid>100405</if_matched_sid>
+
+    <description>Case17: Confirmed clearing of the controlled SOC-Case17 event log was correlated with the associated wevtutil log-clear command despite reversed ingestion order.</description>
+
+    <group>case17,correlation,defense_evasion,log_clearing,out_of_order,</group>
+  </rule>
+
+  <!-- CASE 17 - Security Audit Log Clearing -->
+
+  <rule id="100415" level="10">
+    <if_sid>61603</if_sid>
+
+    <field name="win.eventdata.image" type="pcre2">(?i)\\wevtutil\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\bcl\b\s+Security(?:\s|$)</field>
+
+    <description>Case17: wevtutil attempted to clear the Windows Security audit log: $(win.eventdata.commandLine) - User $(win.eventdata.user) - LogonId $(win.eventdata.logonId)</description>
+
+    <group>case17,defense_evasion,log_clearing,security_log,process_creation,</group>
+
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100420" level="12">
+    <if_sid>63103</if_sid>
+
+    <description>Case17: Windows Security audit log was cleared by $(win.logFileCleared.subjectDomainName)\$(win.logFileCleared.subjectUserName) - SID $(win.logFileCleared.subjectUserSid) - LogonId $(win.logFileCleared.subjectLogonId)</description>
+
+    <group>case17,defense_evasion,log_clearing,security_log,audit_log_cleared,</group>
+
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100425" level="15" timeframe="30">
+    <if_sid>100420</if_sid>
+    <if_matched_sid>100415</if_matched_sid>
+
+    <description>Case17: High-confidence Windows Security log clearing chain - wevtutil clear command followed by confirmed Security audit log clearing.</description>
+
+    <group>case17,correlation,defense_evasion,log_clearing,security_log,high_confidence,</group>
+  </rule>
+
+  <rule id="100427" level="15" timeframe="30">
+    <if_sid>100415</if_sid>
+    <if_matched_sid>100420</if_matched_sid>
+
+    <description>Case17: High-confidence Windows Security log clearing chain correlated despite reversed telemetry ingestion order.</description>
+
+    <group>case17,correlation,defense_evasion,log_clearing,security_log,high_confidence,out_of_order,</group>
+  </rule>
+
+
+</group>
